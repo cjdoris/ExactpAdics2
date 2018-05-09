@@ -1,0 +1,1442 @@
+///# Exact p-adic fields
+
+import "Utils.mag": Z, Q, OO, TRIM_PR, CAP_PR, CAP_APR, ISEXTOF, ELTSEQ, isDefinitelyUnique1;
+import "Promotion.mag": do_binop;
+
+// extension types
+PRIME := 0;
+INERT := 1;
+EISEN := 2;
+
+function fldpad_to_fldpadexact(xF)
+  assert Precision(xF) eq OO;
+  e := AbsoluteRamificationDegree(xF);
+  // initialize the new field
+  F := New(FldPadExact);
+  if IsPrimeField(xF) then
+    F`xtype := PRIME;
+  elif IsUnramified(xF) then
+    F`xtype := INERT;
+  elif IsTotallyRamified(xF) then
+    F`xtype := EISEN;
+  else
+    assert false;
+  end if;
+  F`prime := Prime(xF);
+  F`infinite_precision_approximation := xF;
+  F`dependencies := [**];
+  F`get_approximation := func<n, xds | ChangePrecision(F`infinite_precision_approximation, e * EpochPrecision(F, n))>;
+  Init(F);
+  return F;
+end function;
+
+function fldpad_to_fldpadexact_ext(xE, F)
+  xF := F`infinite_precision_approximation;
+  if xE eq xF then
+    return F;
+  end if;
+  assert ISEXTOF(xE, xF);
+  E := fldpad_to_fldpadexact(xE);
+  E`base_field := fldpad_to_fldpadexact_ext(BaseField(xE), F);
+  return E;
+end function;
+
+function _elt_from_rational(F, X)
+  e := AbsoluteRamificationDegree(F);
+  FUDGE := e eq 1 select 0 else 2*e;
+  x := New(FldPadExactElt);
+  x`parent := F;
+  x`dependencies := [* F *];
+  x`get_approximation := FUDGE eq 0 select func<n, xds | xds[1] ! X> else func<n, xds | TRIM_PR(xds[1] ! X, FUDGE)>;
+  Init(x);
+  return x;
+end function;
+
+function elt_from_rational(F, X)
+  if X eq 0 then
+    return Zero(F);
+  elif X eq 1 then
+    return One(F);
+  elif IsPrimeField(F) and X eq Prime(F) then
+    return UniformizingElement(F);
+  else
+    return _elt_from_rational(F, X);
+  end if;
+end function;
+
+declare type FldPadExact[FldPadExactElt]: StrPadExact;
+declare attributes FldPadExact
+  : infinite_precision_approximation
+  , xtype
+  // cache
+  , prime                          // required when xtype is PRIME
+  , defining_polynomial            // required when defined as an extension
+  , base_field                     // implied by defining_polynomial
+  , prime_field
+  , degree
+  , inertia_degree
+  , ramification_degree
+  , absolute_degree
+  , absolute_ramification_degree
+  , absolute_inertia_degree
+  , zero
+  , one
+  , uniformizing_element
+  , residue_generator
+  , generator
+  , polynomial_ring
+  , mvar_polynomial_ring
+  , residue_class_field
+  , residue_class_map
+  , approximate_residue_class_maps
+  , completion_map
+  , approximate_completion_map
+  , varname
+  , is_extension_of
+  ;
+
+declare type FldPadExactElt: PadExactElt;
+declare attributes FldPadExactElt
+  // cache
+  : valuation
+  , negation
+  , nonzero_epoch
+  , min_nonzero_epoch
+  , eltseq
+  ;
+
+// an extension of p-adic fields
+declare type ExtFldPadExact;
+declare attributes ExtFldPadExact
+  : base_field
+  , top_field
+  , tower
+  // cache
+  , description
+  , degree
+  , inertia_degree
+  , ramification_degree
+  ;
+
+///## Creation of p-adic fields
+
+///### Prime fields
+
+intrinsic ExactpAdicField(p :: RngIntElt) -> FldPadExact
+  {The p-adic field.}
+  require p gt 0 and IsPrime(p): "p must be prime";
+  F := New(FldPadExact);
+  F`infinite_precision_approximation := pAdicField(p);
+  F`prime := p;
+  F`xtype := PRIME;
+  F`dependencies := [**];
+  F`get_approximation := func<n, xds | ChangePrecision(F`infinite_precision_approximation, EpochPrecision(F, n))>;
+  Init(F);
+  return F;
+end intrinsic;
+
+///hide
+intrinsic Print(F :: FldPadExact, lvl :: MonStgElt)
+  {Print.}
+  printf "%o", Description(F / PrimeField(F) : BaseName:=Sprintf("Exact %o-adic field", Prime(F)));
+end intrinsic;
+
+///hide
+intrinsic Print(x :: FldPadExactElt, lvl :: MonStgElt)
+  {Print.}
+  case lvl:
+  when "Maximal":
+    printf "%o", BestApproximation(x);
+  else
+    printf "%o", CAP_PR(BestApproximation(x), 1);
+  end case;
+end intrinsic;
+
+///hide
+intrinsic EpochPrecision(F :: AnyPadExact, n :: RngIntElt) -> RngIntElt
+  {The precision of epoch F.}
+  // magma doesn't like making totally ramified extensions of pAdicField(2,1), so this should be at least 2 (until the bug is fixed)
+  return 2^n;
+end intrinsic;
+
+///hide
+intrinsic InterpolateEpochs(x :: FldPadExactElt, n1 :: RngIntElt, n2 :: RngIntElt, xx2 :: FldPadElt) -> List
+  {Interpolates between the given epochs.}
+  return [* EpochApproximation(Parent(x), n) ! xx2 : n in [n1+1..n2-1] *];
+end intrinsic;
+
+///hide
+intrinsic InterpolateEpochs(F :: FldPadExact, n1 :: RngIntElt, n2 :: RngIntElt, xF2 :: FldPad) -> List
+  {"}
+  e := AbsoluteRamificationDegree(F);
+  return [* ChangePrecision(xF2, Min(EpochPrecision(F, n) * e, Precision(xF2))) : n in [n1+1..n2-1] *];
+end intrinsic;
+
+///### Extensions
+
+/// Constructs an extension of F.
+/// 
+/// Its arguments must be either:
+/// - A positive integer: constructs an unramified extension of this degree.
+/// - Coercible to a inertial polynomial over F: constructs an unramified extension.
+/// - Coercible to an Eisenstein polynomial over F: constructs a totally ramified extension.
+/// - Two `FldPad`s, forming an extension `xE/xF`: constructs an extension `E/F` isomorphic to `xE/xF`.
+intrinsic ExtConstructor(F :: FldPadExact, t :: Tup) -> FldPadExact
+  {Constructs an extension of F.}
+  if #t eq 1 then
+    if Type(t[1]) eq RngIntElt then
+      return UnramifiedExtension(F, t[1]);
+    end if;
+    ok, f := IsCoercible(PolynomialRing(F), t[1]);
+    if ok then
+      if IsInertial(f) then
+        return UnramifiedExtension(f);
+      elif IsEisenstein(f) then
+        return TotallyRamifiedExtension(f);
+      else
+        error "defining polynomial must be inertial or Eisenstein";
+      end if;
+    end if;
+    if Type(t[1]) eq RngIntElt then
+      if t[1] ge 1 then
+        error "not implemented: unramified extension of given degree";
+      else
+        error "degree must be positive";
+      end if;
+    end if;
+  elif #t eq 2 then
+    if Type(t[1]) eq FldPad and Type(t[2]) eq FldPad then
+      return ExactpAdicField(t[1], t[2], F);
+    end if;
+  end if;
+  error "invalid constructor";
+end intrinsic;
+
+intrinsic UnramifiedExtension(F :: FldPadExact, f) -> FldPadExact
+  {An unramified extension of F defined by f.}
+  return UnramifiedExtension(PolynomialRing(F) ! f);
+end intrinsic;
+
+intrinsic UnramifiedExtension(f :: RngUPolElt_FldPadExact) -> FldPadExact
+  {An unramified extension defined by f.}
+  F := BaseRing(f);
+  d := Degree(f);
+  require IsInertial(f): "f must be inertial";
+  function get_pr(f)
+    return Z ! Min([AbsolutePrecision(c) : c in Coefficients(f)]);
+  end function;
+  function get_pol(k,f)
+    xf := BestApproximation(f);
+    pr := get_pr(xf);
+    if pr lt k then
+      printf "WARNING: need to increase precision of defining polynomial (%o -> %o) for unknown reasons\n", pr, k;
+      while pr lt k do
+        xf := EpochApproximation(f, #f`approximations+1);
+        pr := get_pr(xf);
+      end while;      
+    end if;
+    assert pr ge k;
+    // xf := CAP_APR(xf, k);
+    return xf;
+  end function;
+  F`infinite_precision_approximation`DefaultPrecision := 2;
+  E := New(FldPadExact);
+  E`xtype := INERT;
+  E`defining_polynomial := f;
+  E`dependencies := [* f *];
+  // E`get_approximation := func<n, xf | ext<xF | ChangeRing(xf[1], xF)>
+  //   where xF := ChangePrecision(BaseRing(xf[1]), pr)
+  //   where pr := get_pr(xf[1])
+  // >;
+  E`get_approximation := func<n, xf | ChangePrecision(E`infinite_precision_approximation, get_pr(xf[1]))>;
+  E`min_epoch := InterpolateUpToFirstEpochWithApproximation(f, func<xf | get_pr(xf) ge 2>);
+  E`infinite_precision_approximation := ext<F`infinite_precision_approximation | map<Z -> PolynomialRing(F`infinite_precision_approximation) | k :-> get_pol(k,f)>>;
+  Init(E);
+  return E;
+end intrinsic;
+
+intrinsic UnramifiedExtension(F :: FldPadExact, d :: RngIntElt) -> FldPadExact
+  {An unramified extension of F of degree d.}
+  xF := F`infinite_precision_approximation;
+  xE := ext<xF | d>;
+  return ExactpAdicField(xE, xF, F);
+end intrinsic;
+
+intrinsic TotallyRamifiedExtension(F :: FldPadExact, f) -> FldPadExact
+  {A totally ramified extension of F defined by f.}
+  return TotallyRamifiedExtension(PolynomialRing(F) ! f);
+end intrinsic;
+
+intrinsic TotallyRamifiedExtension(f :: RngUPolElt_FldPadExact) -> FldPadExact
+  {A totally ramified extension defined by f.}
+  F := BaseRing(f);
+  d := Degree(f);
+  e := AbsoluteRamificationDegree(F);
+  FUDGE := d*e eq 1 select 0 else 2*e;
+  require IsEisenstein(f): "f must be Eisenstein";
+  function get_pr(f)
+    return Z ! Min([AbsolutePrecision(c) : c in Coefficients(f)]);
+  end function;
+  function get_pol(k,f)
+    k2 := k + FUDGE;
+    xf := BestApproximation(f);
+    pr := get_pr(xf);
+    if pr lt k2 then
+      printf "WARNING: need to increase precision of defining polynomial (%o -> %o) for unknown reasons\n", pr, k2;
+      while pr lt k2 do
+        xf := EpochApproximation(f, #f`approximations+1);
+        pr := get_pr(xf);
+      end while;      
+    end if;
+    assert pr ge k2;
+    // xf := CAP_APR(xf, k);
+    return xf;
+  end function;
+  F`infinite_precision_approximation`DefaultPrecision := 2;
+  E := New(FldPadExact);
+  E`xtype := EISEN;
+  E`defining_polynomial := f;
+  E`dependencies := [* f *];
+  // E`get_approximation := func<n, xf | ext<xF | ChangeRing(xf[1], xF)>
+  //   where xF := ChangePrecision(BaseRing(xf[1]), pr)
+  //   where pr := get_pr(xf[1])
+  // >;
+  E`get_approximation := func<n, xf | ChangePrecision(E`infinite_precision_approximation, d*(get_pr(xf[1]) - FUDGE))>;
+  E`min_epoch := InterpolateUpToFirstEpochWithApproximation(f, func<xf | get_pr(xf) ge 2 + FUDGE>);
+  E`infinite_precision_approximation := ext<F`infinite_precision_approximation | map<Z -> PolynomialRing(F`infinite_precision_approximation) | k :-> get_pol(k,f)>>;
+  Init(E);
+  return E;
+end intrinsic;
+
+///### Completions
+
+function completion(F, p)
+  // the completion, as a FldPad
+  xC, xm := Completion(F, p);
+  // the completion, as a FldPadExact
+  C := fldpad_to_fldpadexact(xC);
+  C`approximate_completion_map := xm;
+  function FtoC(x)
+    cx := New(FldPadExactElt);
+    cx`parent := C;
+    cx`dependencies := [* C *];
+    cx`get_approximation := function (n, xds)
+      locxC := xC;
+      locxC`DefaultPrecision := Precision(xds[1]);
+      return xds[1] ! locxC ! (x @ xm);
+    end function;
+    Init(cx);
+    return cx;
+  end function;
+  function CtoF(y)
+    xy := BestApproximation(y);
+    locxC := xC;
+    locxC`DefaultPrecision := Precision(Parent(xy));
+    return (locxC ! xy) @@ xm;
+  end function;
+  m := map<F -> C | x :-> FtoC(x), y :-> CtoF(y)>;
+  C`completion_map := m;
+  return C, m;
+end function;
+
+intrinsic ExactCompletion(F :: FldRat, p) -> FldPadExact, Map
+  {The completion of F at p as an exact p-adic field. Also returns the embedding of F. The inverse of the embedding takes a p-adic number to its best current approximation, and therefore depends on the current precision of the element.}
+  return completion(F, p);
+end intrinsic;
+
+intrinsic ExactCompletion(F :: FldNum, p) -> FldPadExact, Map
+  {"}
+  return completion(F, p);
+end intrinsic;
+
+///### From approximate fields
+
+intrinsic ExactpAdicField(xF :: FldPad : CheckUnique:=true) -> FldPadExact
+  {An exact p-adic field isomorphic to xF.}
+  if Precision(xF) eq OO then
+    return fldpad_to_fldpadexact(xF);
+  elif IsPrimeField(xF) then
+    return ExactpAdicField(Prime(xF));
+  else
+    return ExactpAdicField(xF, PrimeField(xF), ExactpAdicField(Prime(xF)) : CheckUnique:=CheckUnique);
+  end if;
+end intrinsic;
+
+intrinsic ExactpAdicField(xE :: FldPad, xF :: FldPad, F :: FldPadExact : CheckUnique:=true) -> FldPadExact
+  {Given an extension xE/xF, such that xF is parallel-coercible to and from any approximation field of F, returns E such that E/F is isomorphic to xE/xF. Note that ext<F | xE, xF> is shorthand for this.}
+  require ISEXTOF(xE, xF): "xE must be an extension of xF";
+  require AbsoluteDegree(xF) eq AbsoluteDegree(F): "Domain of xF must be isomorphic to F";
+  // base case
+  if xE eq xF then
+    return F;
+  end if;
+  // simple case
+  if xF eq F`infinite_precision_approximation then
+    return fldpad_to_fldpadexact_ext(xE, F);
+  end if;
+  // check xE is ok
+  assert not IsPrimeField(xE);
+  if CheckUnique then
+    require isDefinitelyUnique1(xE): "xE is not precise enough to uniquely determine its isomorphism class";
+  end if;
+  // recurse on the base field
+  xE0 := BaseField(xE);
+  E0 := ExactpAdicField(xE0, xF, F : CheckUnique:=CheckUnique);
+  // make the defining polynomial
+  if Precision(xE) eq OO then
+    e := AbsoluteRamificationDegree(xE);
+    e0 := AbsoluteRamificationDegree(xE0);
+    pol := New(RngUPolElt_FldPadExact);
+    pol`parent := PolynomialRing(E0);
+    pol`dependencies := [* pol`parent *];
+    pol`get_approximation := function (n, xR)
+      locxE0 := xE0;
+      locxE := xE;
+      pr := Precision(BaseRing(xR[1]));
+      locxE0`DefaultPrecision := pr * e0;
+      locxE`DefaultPrecision := pr * e;
+      return xR[1] ! DefiningPolynomial(locxE);
+    end function;
+    Init(pol);
+  else
+    pol := WeakApproximation(PolynomialRing(E0) ! DefiningPolynomial(xE));
+  end if;
+  // make the extension
+  E := ext<E0 | pol>;
+  return E;
+end intrinsic;
+
+///## Creation of p-adic numbers
+
+///### Distinguished elements
+
+intrinsic Zero(F :: FldPadExact) -> FldPadExactElt
+  {The zero element of F.}
+  if not assigned F`zero then
+    z := New(FldPadExactElt);
+    z`parent := F;
+    z`dependencies := [* F *];
+    z`get_approximation := func<n, xds | xds[1] ! 0>;
+    Init(z);
+    F`zero := z;
+  end if;
+  return F`zero;
+end intrinsic;
+
+intrinsic One(F :: FldPadExact) -> FldPadExactElt
+  {The one element of F.}
+  if not assigned F`one then
+    F`one := _elt_from_rational(F, 1);
+  end if;
+  return F`one;
+end intrinsic;
+
+intrinsic UniformizingElement(F :: FldPadExact) -> FldPadExactElt
+  {A uniformizing element of F.}
+  if not assigned F`uniformizing_element then
+    case F`xtype:
+    when PRIME:
+      pi := _elt_from_rational(F, Prime(F));
+    when INERT:
+      pi := F ! UniformizingElement(BaseField(F));
+    when EISEN:
+      pi := Generator(F);
+    else
+      assert false;
+    end case;
+    F`uniformizing_element := pi;
+  end if;
+  return F`uniformizing_element;
+end intrinsic;
+
+intrinsic ResidueGenerator(F :: FldPadExact) -> FldPadExactElt
+  {A residue generator of F. That is, an element whose residue class generates the residue class field over its prime subfield.}
+  if not assigned F`residue_generator then
+    case F`xtype:
+    when PRIME:
+      g := F ! 1;
+    when INERT:
+      g := Generator(F);
+    when EISEN:
+      g := F ! ResidueGenerator(BaseField(F));
+    else
+      assert false;
+    end case;
+    F`residue_generator := g;
+  end if;
+  return F`residue_generator;
+end intrinsic;
+
+intrinsic Generator(F :: FldPadExact) -> FldPadExactElt
+  {A generator of F.}
+  if not assigned F`generator then
+    g := New(FldPadExactElt);
+    g`parent := F;
+    g`dependencies := [* F *];
+    g`get_approximation := func<n,xF | xF[1].1>;
+    Init(g);
+    F`generator := g;
+  end if;
+  return F`generator;
+end intrinsic;
+
+///hide
+intrinsic Name(F :: FldPadExact, i :: RngIntElt) -> FldPadExactElt
+  {The ith generator of F.}
+  require i eq 1: "i must be 1";
+  return Generator(F);
+end intrinsic;
+
+///hide
+intrinsic '.'(F :: FldPadExact, i :: RngIntElt) -> FldPadExactElt
+  {"}
+  require i eq 1: "i must be 1";
+  return Generator(F);
+end intrinsic;
+
+///hide
+intrinsic AssignNames(~F :: FldPadExact, names :: [MonStgElt])
+  {Assigns the names to the generators of F.}
+  case F`xtype:
+  when INERT, EISEN:
+    require #names le 1: "names must have length at most 1";
+    if #names eq 0 then
+      if assigned F`varname then
+        delete F`varname;
+      end if;
+    else
+      F`varname := names[1];
+    end if;
+    AssignNames(~F`infinite_precision_approximation, F);
+    for i in [1..#F`approximations] do
+      AssignNames(~F`approximations[i], F);
+    end for;
+  when PRIME:
+    error "F must be an extension";
+  else
+    assert false;
+  end case;
+end intrinsic;
+
+///hide
+intrinsic AssignNames(~xF :: FldPad, F :: FldPadExact)
+  {Assigns the names of xF from F.}
+  if assigned F`varname then
+    AssignNames(~xF, [F`varname]);
+  end if;
+end intrinsic;
+
+///hide
+intrinsic SetApproximationHook(F :: FldPadExact, n :: RngIntElt, ~xF :: FldPad)
+  {Called by SetApproximation.}
+  AssignNames(~xF, F);
+end intrinsic;
+
+///### From coefficients
+
+///### Coercion
+///
+/// We can coerce the following to an element of `F`:
+/// - An element of `F`
+/// - An integer or rational
+/// - Anything coercible to the base field of `F`
+/// - Anything coercible to a number field that `F` is a completion of
+
+intrinsic IsCoercible(F :: FldPadExact, X) -> BoolElt, .
+  {True if X is coercible to F. If so, also returns the coerced element.}
+  if assigned F`completion_map then
+    ok, Y := IsCoercible(Domain(F`completion_map), X);
+    if ok then
+      return true, Y @ F`completion_map;
+    end if;
+  end if;
+  return false, "wrong type";
+end intrinsic;
+
+///hide
+intrinsic IsCoercible(F :: FldPadExact, X :: FldPadExactElt) -> BoolElt, .
+  {"}
+  if Parent(X) eq F then
+    return true, X;
+  elif IsExtensionOf(F, Parent(X)) then
+    e := AbsoluteRamificationDegree(F);
+    FUDGE := e eq 1 select 0 else 2*e;
+    x := New(FldPadExactElt);
+    x`parent := F;
+    x`dependencies := [* F, X *];
+    x`get_approximation := func<n, xds | TRIM_PR(xds[1] ! xds[2], FUDGE)>;
+    Init(x);
+    return true, x;
+  else
+    return false, _;
+  end if;
+end intrinsic;
+
+///hide
+intrinsic IsCoercible(F :: FldPadExact, X :: RngIntElt) -> BoolElt, .
+  {"}
+  return true, elt_from_rational(F, X);
+end intrinsic;
+
+///hide
+intrinsic IsCoercible(F :: FldPadExact, X :: FldRatElt) -> BoolElt, .
+  {"}
+  return true, elt_from_rational(F, X);
+end intrinsic;
+
+///hide
+intrinsic IsCoercible(F :: FldPadExact, X :: FldPadElt) -> BoolElt, .
+  {"}
+  xF := F`infinite_precision_approximation;
+  ok, xE := ExistsCoveringStructure(xF, Parent(X));
+  if ok
+  and AbsoluteDegree(xF) eq AbsoluteDegree(xE)
+  and AbsoluteDegree(Parent(X)) eq AbsoluteDegree(xE)
+  and X in xF
+  then
+    x := New(FldPadExactElt);
+    x`parent := F;
+    x`dependencies := [* F *];
+    x`get_approximation := func<n, xds | xds[1] ! X>;
+    Init(x);
+    IncreaseAbsolutePrecision(x, AbsolutePrecision(X));
+    return true, x;
+  else
+    return false, "not an approximation of an element of F";
+  end if;
+end intrinsic;
+
+///### Random
+
+///## Basic operations
+
+intrinsic Prime(F :: FldPadExact) -> RngIntElt
+  {The prime of F.}
+  if not assigned F`prime then
+    F`prime := Prime(BaseField(F));
+  end if;
+  return F`prime;
+end intrinsic;
+
+intrinsic DefiningPolynomial(F :: FldPadExact) -> RngUPolElt_FldPadExact
+  {The defining polynomial of F.}
+  if not assigned F`defining_polynomial then
+    case F`xtype:
+    when INERT, EISEN:
+      pol := New(RngUPolElt_FldPadExact);
+      pol`parent := PolynomialRing(BaseField(F));
+      pol`dependencies := [* F, pol`parent *];
+      pol`get_approximation := func<n, xds | xds[2] ! DefiningPolynomial(xds[1])>;
+      Init(pol);
+    when PRIME:
+      error "F must be an extension";
+    else
+      assert false;
+    end case;
+    F`defining_polynomial := pol;    
+  end if;
+  return F`defining_polynomial;
+end intrinsic;
+
+intrinsic Valuation(x :: FldPadExactElt) -> ValFldPadExactElt
+  {The valuation of x. If x is zero, this will hang.}
+  if not assigned x`valuation then
+    if WeakValuation(x) eq OO then
+      x`valuation := OO;
+    else
+      ok := IsDefinitelyNonzero(x);
+      require ok: "weakly zero";
+      x`valuation := WeakValuation(x);
+    end if;
+  end if;
+  return x`valuation;
+end intrinsic;
+
+intrinsic IsDefinitelyNonzero(x :: FldPadExactElt : Minimize:=false) -> BoolElt, RngIntElt
+  {True if x is nonzero. If so, returns an epoch in which the approximation is nonzero.}
+  if Minimize then
+    if not assigned x`min_nonzero_epoch then
+      ok, n := ExistsEpochWithApproximation(x, func<xx | not IsWeaklyZero(xx)> : Minimize, FromTop);
+      if ok then
+        x`min_nonzero_epoch := n;
+        x`nonzero_epoch := n;
+      else
+        return false, _;
+      end if;
+    end if;
+    return true, x`min_nonzero_epoch;
+  else
+    if not assigned x`nonzero_epoch then
+      ok, n := ExistsEpochWithApproximation(x, func<xx | not IsWeaklyZero(xx)> : FromTop);
+      if ok then
+        x`nonzero_epoch := n;
+      else
+        return false, _;
+      end if;
+    end if;
+    return true, x`nonzero_epoch;
+  end if;
+end intrinsic;
+
+intrinsic IsDefinitelyZero(x :: FldPadExactElt) -> BoolElt
+  {True if x is definitely zero. That is, it is weakly zero and has infinite absolute precision.}
+  return IsWeaklyZero(x) and AbsolutePrecision(x) eq OO;
+end intrinsic;
+
+intrinsic Eltseq(x :: FldPadExactElt) -> []
+  {The coefficients of x as a vector over the base field.}
+  if not assigned x`eltseq then
+    E := Parent(x);
+    if IsPrimeField(E) then
+      error "x must be in an extension";
+    end if;
+    F := BaseField(E);
+    cs := New(Tup_PadExact);
+    cs`parent := CartesianPower(F, Degree(E));
+    cs`dependencies := [* x, F *];
+    cs`get_approximation := func<n, xds | <xds[2] ! c : c in ELTSEQ(xds[1])>>;
+    Init(cs);
+    x`eltseq := cs;
+  end if;
+  return ToSequence(x`eltseq);
+end intrinsic;
+
+///## Arithmetic
+
+/// Negate, add, subtract, multiply, divide, power, sum and product.
+intrinsic '-'(x :: FldPadExactElt) -> FldPadExactElt
+  {Negation.}
+  if not assigned x`negation then
+    y := New(FldPadExactElt);
+    y`parent := Parent(x);
+    y`dependencies := [* x *];
+    y`get_approximation := func<n, xds | -xds[1]>;
+    Init(y);
+    x`negation := y;
+    y`negation := x;
+  end if;
+  return x`negation;
+end intrinsic;
+
+///ditto
+intrinsic '+'(x :: FldPadExactElt, y :: FldPadExactElt) -> FldPadExactElt
+  {Add.}
+  ok, F := ExistsCoveringStructure(Parent(x), Parent(y));
+  require ok: "different fields";
+  return &+[F|x,y];
+end intrinsic;
+
+///hide
+intrinsic '+'(x :: FldPadExactElt, y) -> .
+  {"}
+  return do_binop('+', x, y);
+end intrinsic;
+
+///hide
+intrinsic '+'(x, y :: FldPadExactElt) -> .
+  {"}
+  return do_binop('+', x, y);
+end intrinsic;
+
+///ditto
+intrinsic '-'(x :: FldPadExactElt, y :: FldPadExactElt) -> FldPadExactElt
+  {Subtract.}
+  ok, F := ExistsCoveringStructure(Parent(x), Parent(y));
+  require ok: "different fields";
+  r := New(FldPadExactElt);
+  r`parent := F;
+  r`dependencies := [* F!x, F!y *];
+  r`get_approximation := func<n, xds | xds[1] - xds[2]>;
+  Init(r);
+  return r;
+end intrinsic;
+
+///hide
+intrinsic '-'(x :: FldPadExactElt, y) -> .
+  {"}
+  return do_binop('-', x, y);
+end intrinsic;
+
+///hide
+intrinsic '-'(x, y :: FldPadExactElt) -> .
+  {"}
+  return do_binop('-', x, y);
+end intrinsic;
+
+///ditto
+intrinsic '*'(x :: FldPadExactElt, y :: FldPadExactElt) -> FldPadExactElt
+  {Multiply.}
+  ok, F := ExistsCoveringStructure(Parent(x), Parent(y));
+  require ok: "different fields";
+  return &*[F|x,y];
+end intrinsic;
+
+///hide
+intrinsic '*'(x :: FldPadExactElt, y) -> .
+  {"}
+  return do_binop('*', x, y);
+end intrinsic;
+
+///hide
+intrinsic '*'(x, y :: FldPadExactElt) -> .
+  {"}
+  return do_binop('*', x, y);
+end intrinsic;
+
+///ditto
+intrinsic '/'(x :: FldPadExactElt, y :: FldPadExactElt) -> FldPadExactElt
+  {Divide.}
+  ok, F := ExistsCoveringStructure(Parent(x), Parent(y));
+  require ok: "different fields";
+  x2 := F ! x;
+  y2 := F ! y;
+  EnsureAllApproximationsNonzero(y2);
+  r := New(FldPadExactElt);
+  r`parent := F;
+  r`dependencies := [* x2, y2 *];
+  r`get_approximation := func<n, xds | xds[1] / xds[2]>;
+  Init(r);
+  return r;
+end intrinsic;
+
+///hide
+intrinsic '/'(x :: FldPadExactElt, y) -> .
+  {"}
+  return do_binop('/', x, y);
+end intrinsic;
+
+///hide
+intrinsic '/'(x, y :: FldPadExactElt) -> .
+  {"}
+  return do_binop('/', x, y);
+end intrinsic;
+
+///ditto
+intrinsic '^'(x :: FldPadExactElt, m :: RngIntElt) -> FldPadExactElt
+  {Power.}
+  F := Parent(x);
+  if m eq 0 then
+    return One(F);
+  end if;
+  if m lt 0 then
+    EnsureAllApproximationsNonzero(x);
+  end if;
+  r := New(FldPadExactElt);
+  r`parent := F;
+  r`dependencies := [* x *];
+  r`get_approximation := func<n, xds | xds[1]^m>;
+  Init(r);
+  return r;
+end intrinsic;
+
+///ditto
+intrinsic '&+'(xs :: [FldPadExactElt]) -> FldPadExactElt
+  {Sum.}
+  F := Universe(xs);
+  case #xs:
+  when 0:
+    return Zero(F);
+  when 1:
+    return xs[1];
+  else
+    r := New(FldPadExactElt);
+    r`parent := Universe(xs);
+    r`dependencies := [*x : x in xs*];
+    r`get_approximation := func<n, xxs | &+[xx : xx in xxs]>;
+    Init(r);
+    return r;
+  end case;
+end intrinsic;
+
+///ditto
+intrinsic '&*'(xs :: [FldPadExactElt]) -> FldPadExactElt
+  {Product.}
+  F := Universe(xs);
+  case #xs:
+  when 0:
+    return One(F);
+  when 1:
+    return xs[1];
+  else
+    r := New(FldPadExactElt);
+    r`parent := Universe(xs);
+    r`dependencies := [*x : x in xs*];
+    r`get_approximation := func<n, xxs | &*[xx : xx in xxs]>;
+    Init(r);
+    return r;
+  end case;
+end intrinsic;
+
+intrinsic ShiftValuation(x :: FldPadExactElt, m :: RngIntElt) -> FldPadExactElt
+  {Multiplies x by the mth power of the uniformizer.}
+  if m eq 0 then
+    return x;
+  end if;
+  y := New(FldPadExactElt);
+  y`parent := Parent(x);
+  y`dependencies := [* x *];
+  y`get_approximation := func<n, xx | ShiftValuation(xx[1], m)>;
+  Init(y);
+  return y;
+end intrinsic;
+
+///## Valuation
+
+///### Comparison to constant
+
+/// Compares the valuation of `x` with `v`.
+intrinsic ValuationEq(x :: FldPadExactElt, v) -> BoolElt
+  {True if the valuation of x equals v.}
+  v := ValFldPadExactElt_Make(v);
+  if not IsWeaklyZero(x) then
+    return WeakValuation(x) eq v;
+  end if;
+  if IsFinite(v) and not IsIntegral(v) then
+    return false;
+  end if;
+  IncreaseAbsolutePrecision(x, v+1);
+  return WeakValuation(x) eq v;
+end intrinsic;
+
+///ditto
+intrinsic ValuationNe(x :: FldPadExactElt, v) -> BoolElt
+  {True if x does not have valuation v.}
+  return not ValuationEq(x, v);
+end intrinsic;
+
+///ditto
+intrinsic ValuationGe(x :: FldPadExactElt, v) -> BoolElt
+  {True if the valuation of x is at least v.}
+  IncreaseAbsolutePrecision(x, Ceiling(v));
+  return WeakValuation(x) ge v;
+end intrinsic;
+
+///ditto
+intrinsic ValuationGt(x :: FldPadExactElt, v) -> BoolElt
+  {True if the valuation of x is greater than v.}
+  v := ValFldPadExactElt_Make(v);
+  if v eq OO then
+    return false;
+  else
+    return ValuationGe(x, v+1);
+  end if;
+end intrinsic;
+
+///ditto
+intrinsic ValuationLe(x :: FldPadExactElt, v) -> BoolElt
+  {True if the valuation of x is at most v.}
+  return not ValuationGt(x, v);
+end intrinsic;
+
+///ditto
+intrinsic ValuationLt(x :: FldPadExactElt, v) -> BoolElt
+  {True if the valuation of x is less than v.}
+  return not ValuationGe(x, v);
+end intrinsic;
+
+/// True if `x` is a uniformizing element; that is, its valuation is 1.
+intrinsic IsUniformizingElement(x :: FldPadExactElt) -> BoolElt
+  {True iff x is a uniformizing element, i.e. has valuation 1.}
+  return ValuationEq(x, 1);
+end intrinsic;
+
+/// True if `x` is a unit; that is, its valuation is 0.
+intrinsic IsUnit(x :: FldPadExactElt) -> BoolElt
+  {True if x has valuation 0.}
+  return ValuationEq(x, 0);
+end intrinsic;
+
+/// True if `x` is an integer; that is, its valuation is at least 0.
+intrinsic IsIntegral(x :: FldPadExactElt) -> BoolElt
+  {True if x has valuation at least 0.}
+  return ValuationGe(x, 0);
+end intrinsic;
+
+///### Comparison between elements
+
+/// Compares the valuation of `x` with the valuation of `y`.
+intrinsic ValuationEqValuation(x :: FldPadExactElt, y :: FldPadExactElt) -> BoolElt
+  {True if x and y have the same valuation.}
+  for n in [Max(1, Min(#x`approximations, #y`approximations))..99999] do
+    xx := EpochApproximation(x, n);
+    xy := EpochApproximation(y, n);
+    if not IsWeaklyZero(xx) then
+      return ValuationEq(y, Valuation(xx));
+    elif not IsWeaklyZero(xy) then
+      return ValuationEq(x, Valuation(xy));
+    end if;
+  end for;
+end intrinsic;
+
+///ditto
+intrinsic ValuationNeValuation(x :: FldPadExactElt, y :: FldPadExactElt) -> BoolElt
+  {True if x and y have different valuations.}
+  return not ValuationEqValuation(x, y);
+end intrinsic;
+
+///ditto
+intrinsic ValuationGeValuation(x :: FldPadExactElt, y :: FldPadExactElt) -> BoolElt
+  {True if the valuation of x is greater than or equal to the valuation of y.}
+  for n in [Max(1, Min(#x`approximations, #y`approximations))..99999] do
+    xx := EpochApproximation(x, n);
+    xy := EpochApproximation(y, n);
+    if not IsWeaklyZero(xx) then
+      return ValuationLe(y, Valuation(xx));
+    elif not IsWeaklyZero(xy) then
+      return ValuationGe(x, Valuation(xy));
+    end if;
+  end for;
+end intrinsic;
+
+///ditto
+intrinsic ValuationGtValuation(x :: FldPadExactElt, y :: FldPadExactElt) -> BoolElt
+  {True if the valuation of x is greater than the valuation of y.}
+  for n in [Max(1, Min(#x`approximations, #y`approximations))..99999] do
+    xx := EpochApproximation(x, n);
+    xy := EpochApproximation(y, n);
+    if not IsWeaklyZero(xx) then
+      return ValuationLt(y, Valuation(xx));
+    elif not IsWeaklyZero(xy) then
+      return ValuationGt(x, Valuation(xy));
+    end if;
+  end for;
+end intrinsic;
+
+///ditto
+intrinsic ValuationLeValuation(x :: FldPadExactElt, y :: FldPadExactElt) -> BoolElt
+  {True if the valuation of x is greater than or equal to the valuation of y.}
+  return ValuationGeValuation(y, x);
+end intrinsic;
+
+///ditto
+intrinsic ValuationLtValuation(x :: FldPadExactElt, y :: FldPadExactElt) -> BoolElt
+  {True if the valuation of x is greater than the valuation of y.}
+  return ValuationGtValuation(y, x);
+end intrinsic;
+
+///### Smallest and closest
+
+///## Extensions
+
+///### Basic information
+
+intrinsic IsPrimeField(F :: FldPadExact) -> BoolElt
+  {True if F is a prime field.}
+  return F`xtype eq PRIME;
+end intrinsic;
+
+intrinsic BaseField(E :: FldPadExact) -> FldPadExact
+  {The base field of E, which must be an extension.}
+  if not assigned E`base_field then
+    case E`xtype:
+    when INERT, EISEN:
+      if assigned E`defining_polynomial then
+        F := BaseRing(E`defining_polynomial);
+      else
+        F := fldpad_to_fldpadexact(BaseField(E`infinite_precision_approximation));
+      end if;
+      E`base_field := F;
+    when PRIME:
+      error "E must be an extension";
+    end case;
+  end if;
+  return E`base_field;
+end intrinsic;
+
+intrinsic PrimeField(E :: FldPadExact) -> FldPadExact
+  {The prime subfield of E.}
+  if not assigned E`prime_field then
+    E`prime_field := IsPrimeField(E) select E else PrimeField(BaseField(E));
+  end if;
+  return E`prime_field;
+end intrinsic;
+
+intrinsic IsExtensionOf(E :: FldPadExact, F :: FldPadExact) -> BoolElt, ExtFldPadExact
+  {True if E is an extension of F. If so, also returns an object representing the extension.}
+  if not assigned E`is_extension_of then
+    E`is_extension_of := AssociativeArray();
+  end if;
+  if IsDefined(E`is_extension_of, F`id) then
+    return true, E`is_extension_of[F`id];
+  elif E eq F then
+    X := New(ExtFldPadExact);
+    X`top_field := E;
+    X`base_field := F;
+    X`tower := [E];
+    E`is_extension_of[F`id] := X;
+    return true, X;
+  elif IsPrimeField(E) then
+    return false, _;
+  end if;
+  ok, X0 := IsExtensionOf(BaseField(E), F);
+  if ok then
+    X := New(ExtFldPadExact);
+    X`top_field := E;
+    X`base_field := F;
+    X`tower := X0`tower cat [E];
+    E`is_extension_of[F`id] := X;
+    return true, X;
+  else
+    return false, _;
+  end if;
+end intrinsic;
+
+///hide
+intrinsic Print(X :: ExtFldPadExact, lvl :: MonStgElt)
+  {Prints X.}
+  printf "%o", Description(X);
+end intrinsic;
+
+///hide
+intrinsic Description(X :: ExtFldPadExact : BaseName:="") -> MonStgElt
+  {A description of the extension.}
+  if not assigned X`description then
+    parts := [Strings()| ];
+    for F in X`tower[#X`tower..2 by -1] do
+      case F`xtype:
+      when INERT:
+        Append(~parts, Sprintf("Unramified extension of degree %o", Degree(F)));
+      when EISEN:
+        Append(~parts, Sprintf("Totally ramified extension of degree %o", Degree(F)));
+      else
+        assert false;
+      end case;
+    end for;
+    X`description := Join(parts, " over ");
+  end if;
+  if #BaseName ne 0 then
+    if #X`description ne 0 then
+      return &cat[X`description, " over ", BaseName];
+    else
+      return BaseName;
+    end if;
+  else
+    return X`description;
+  end if;
+end intrinsic;
+
+///hide
+intrinsic '/'(E :: FldPadExact, F :: FldPadExact) -> ExtFldPadExact
+  {The extension `E/F`.}
+  ok, X := IsExtensionOf(E, F);
+  require ok: "not an extension";
+  return X;
+end intrinsic;
+
+///hide
+intrinsic ExistsCoveringStructure(E :: FldPadExact, F :: FldPadExact) -> BoolElt, .
+  {True if there is a field containing both E and F.}
+  if IsExtensionOf(E, F) then
+    return true, E;
+  elif IsExtensionOf(F, E) then
+    return true, F;
+  else
+    return false, _;
+  end if;
+end intrinsic;
+
+///### Invariants
+
+intrinsic Degree(E :: FldPadExact, F :: FldPadExact) -> RngIntElt
+  {The degree of E over F.}
+  return Degree(E/F);
+end intrinsic;
+
+///hide
+intrinsic Degree(X :: ExtFldPadExact) -> RngIntElt
+  {The degree of X.}
+  return &*[Z| Degree(F) : F in X`tower[2..#X`tower]];
+end intrinsic;
+
+intrinsic InertiaDegree(E :: FldPadExact, F :: FldPadExact) -> RngIntElt
+  {The inertia degree of E over F.}
+  return InertiaDegree(E/F);
+end intrinsic;
+
+///hide
+intrinsic InertiaDegree(X :: ExtFldPadExact) -> RngIntElt
+  {The inertia degree of X.}
+  return &*[Z| InertiaDegree(F) : F in X`tower[2..#X`tower]];
+end intrinsic;
+
+intrinsic RamificationDegree(E :: FldPadExact, F :: FldPadExact) -> RngIntElt
+  {The ramification degree of E over F.}
+  return RamificationDegree(E/F);
+end intrinsic;
+
+///hide
+intrinsic RamificationDegree(X :: ExtFldPadExact) -> RngIntElt
+  {The ramification degree of X.}
+  return &*[Z| RamificationDegree(F) : F in X`tower[2..#X`tower]];
+end intrinsic;
+
+intrinsic Degree(F :: FldPadExact) -> RngIntElt
+  {The degree of F over its base field.}
+  if not assigned F`degree then
+    case F`xtype:
+    when INERT, EISEN:
+      deg := Degree(DefiningPolynomial(F));
+    when PRIME:
+      error "F must be an extension";
+    else
+      assert false;
+    end case;
+    F`degree := deg;
+  end if;
+  return F`degree;
+end intrinsic;
+
+intrinsic InertiaDegree(F :: FldPadExact) -> RngIntElt
+  {The inertia degree of F over its base field.}
+  if not assigned F`inertia_degree then
+    case F`xtype:
+    when EISEN:
+      deg := 1;
+    when INERT:
+      deg := Degree(F);
+    when PRIME:
+      error "F must be an extension";
+    else
+      assert false;
+    end case;
+    F`inertia_degree := deg;
+  end if;
+  return F`inertia_degree;
+end intrinsic;
+
+intrinsic RamificationDegree(F :: FldPadExact) -> RngIntElt
+  {The ramification degree of F over its base field.}
+  if not assigned F`ramification_degree then
+    case F`xtype:
+    when INERT:
+      deg := 1;
+    when EISEN:
+      deg := Degree(F);
+    when PRIME:
+      error "F must be an extension";
+    else
+      assert false;
+    end case;
+    F`ramification_degree := deg;
+  end if;
+  return F`ramification_degree;
+end intrinsic;
+
+intrinsic AbsoluteDegree(F :: FldPadExact) -> RngIntElt
+  {The absolute degree of F.}
+  if not assigned F`absolute_degree then
+    F`absolute_degree := IsPrimeField(F) select 1 else Degree(F) * AbsoluteDegree(BaseField(F));
+  end if;
+  return F`absolute_degree;
+end intrinsic;
+
+intrinsic AbsoluteInertiaDegree(F :: FldPadExact) -> RngIntElt
+  {The absolute inertia degree of F.}
+  if not assigned F`absolute_inertia_degree then
+    F`absolute_inertia_degree := IsPrimeField(F) select 1 else InertiaDegree(F) * AbsoluteInertiaDegree(BaseField(F));
+  end if;
+  return F`absolute_inertia_degree;
+end intrinsic;
+
+intrinsic AbsoluteRamificationDegree(F :: FldPadExact) -> RngIntElt
+  {The absolute ramification degree of F.}
+  if not assigned F`absolute_ramification_degree then
+    F`absolute_ramification_degree := IsPrimeField(F) select 1 else RamificationDegree(F) * AbsoluteRamificationDegree(BaseField(F));
+  end if;
+  return F`absolute_ramification_degree;
+end intrinsic;
+
+///### Ramification predicates
+
+/// True if E is unramified over F or its base field. That is, the ramification degree is 1.
+intrinsic IsUnramified(E :: FldPadExact) -> BoolElt
+  {True if E is unramified over its base field.}
+  return RamificationDegree(E) eq 1;
+end intrinsic;
+
+///hide
+intrinsic IsUnramified(X :: ExtFldPadExact) -> BoolElt
+  {True if X is unramified.}
+  return RamificationDegree(X) eq 1;
+end intrinsic;
+
+///ditto
+intrinsic IsUnramified(E :: FldPadExact, F :: FldPadExact) -> BoolElt
+  {True if E is unramified over F.}
+  return RamificationDegree(E, F) eq 1;
+end intrinsic;
+
+/// True if E is ramified over F or its base field. That is, the ramification degree is not 1.
+intrinsic IsRamified(E :: FldPadExact) -> BoolElt
+  {True if E is ramified over its base field.}
+  return RamificationDegree(E) ne 1;
+end intrinsic;
+
+///hide
+intrinsic IsRamified(X :: ExtFldPadExact) -> BoolElt
+  {True if X is ramified.}
+  return RamificationDegree(X) ne 1;
+end intrinsic;
+
+///ditto
+intrinsic IsRamified(E :: FldPadExact, F :: FldPadExact) -> BoolElt
+  {True if E is ramified over F.}
+  return RamificationDegree(E, F) ne 1;
+end intrinsic;
+
+/// True if E is totally ramified over F or its base field. That is, the inertia degree is 1.
+intrinsic IsTotallyRamified(E :: FldPadExact) -> BoolElt
+  {True if E is totally ramified over its base field.}
+  return InertiaDegree(E) eq 1;
+end intrinsic;
+
+///hide
+intrinsic IsTotallyRamified(X :: ExtFldPadExact) -> BoolElt
+  {True if X is totally ramified.}
+  return InertiaDegree(X) eq 1;
+end intrinsic;
+
+///ditto
+intrinsic IsTotallyRamified(E :: FldPadExact, F :: FldPadExact) -> BoolElt
+  {True if E is totally ramified over F.}
+  return InertiaDegree(E, F) eq 1;
+end intrinsic;
+
+/// True if E is tamely ramified over F or its base field. That is, the ramification degree is indivisible by `p`.
+intrinsic IsTamelyRamified(E :: FldPadExact) -> BoolElt
+  {True if E is tamely ramified over its base field.}
+  return not IsDivisibleBy(RamificationDegree(E), Prime(E));
+end intrinsic;
+
+///hide
+intrinsic IsTamelyRamified(X :: ExtFldPadExact) -> BoolElt
+  {True if X is tamely ramified.}
+  return not IsDivisibleBy(RamificationDegree(X), Prime(X));
+end intrinsic;
+
+///ditto
+intrinsic IsTamelyRamified(E :: FldPadExact, F :: FldPadExact) -> BoolElt
+  {True if E is tamely ramified over F.}
+  return not IsDivisibleBy(RamificationDegree(E, F), Prime(E));
+end intrinsic;
+
+/// True if E is wildly ramified over F or its base field. That is, the ramification degree is divisible by `p`.
+intrinsic IsWildlyRamified(E :: FldPadExact) -> BoolElt
+  {True if E is wildly ramified over its base field.}
+  return not IsTamelyRamified(E);
+end intrinsic;
+
+///hide
+intrinsic IsWildlyRamified(X :: ExtFldPadExact) -> BoolElt
+  {True if X is wildly ramified.}
+  return not IsTamelyRamified(X);
+end intrinsic;
+
+///ditto
+intrinsic IsWildlyRamified(E :: FldPadExact, F :: FldPadExact) -> BoolElt
+  {True if E is wildly ramified over F.}
+  return not IsTamelyRamified(E, F);
+end intrinsic;
+
+/// True if E is totally wildly ramified over F or its base field. That is, the inertia degree is 1 and the ramification degree is a power of `p`.
+intrinsic IsTotallyWildlyRamified(E :: FldPadExact) -> BoolElt
+  {True if E is totally wildly ramified over its base field.}
+  return IsTotallyRamified(E) and IsPowerOf(RamificationDegree(E), Prime(E));
+end intrinsic;
+
+///hide
+intrinsic IsTotallyWildlyRamified(X :: ExtFldPadExact) -> BoolElt
+  {True if X is totally wildly ramified.}
+  return IsTotallyRamified(X) and IsPowerOf(RamificationDegree(X), Prime(X`top_field));
+end intrinsic;
+
+///ditto
+intrinsic IsTotallyWildlyRamified(E :: FldPadExact, F :: FldPadExact) -> BoolElt
+  {True if E is totally wildly ramified over F.}
+  return IsTotallyRamified(E, F) and IsPowerOf(RamificationDegree(E, F), Prime(E));
+end intrinsic;
+
+///### Printing
+
+///### Standard form
+
+///## Residue class field
+
+/// The residue class field `FF` of F, and the quotient map from `F` to `FF`.
+/// 
+/// Note that the quotient map has an inverse whose approximations always have absolute precision 1, that is, the precision does not increase with epoch. Use `WeakApproximation` to choose a representative to infinite precision.
+intrinsic ResidueClassField(F :: FldPadExact) -> FldFin, Map
+  {The residue class field of F.}
+  if not assigned F`residue_class_map then
+    xF := F`infinite_precision_approximation;
+    FF, m := ResidueClassField(Integers(xF));
+    function FtoFF(x)
+      if ValuationGt(x, 0) then
+        return 0;
+      elif ValuationLt(x, 0) then
+        error "x must be integral";
+      end if;
+      xx := BestApproximation(x);
+      assert AbsolutePrecision(xx) gt 0;
+      assert Valuation(xx) eq 0;
+      return xx @ m;
+    end function;
+    function FFtoF(y)
+      xx := CAP_APR(xF ! (y @@ m), 1);
+      x := New(FldPadExactElt);
+      x`parent := F;
+      x`dependencies := [* F *];
+      x`get_approximation := func<n, xds | CAP_APR(xds[1] ! xx, 1)>;
+      Init(x);
+      IncreaseAbsolutePrecision(x, 1);
+      return x;
+    end function;
+    F`residue_class_field := FF;
+    F`residue_class_map := map<F -> FF | x :-> FtoFF(x), y :-> FFtoF(y)>;
+  end if;
+  return F`residue_class_field, F`residue_class_map;
+end intrinsic;
+
+intrinsic ResidueClass(x :: FldPadExactElt) -> FldFinElt
+  {The residue class of x.}
+  return x @ m where _,m := ResidueClassField(Parent(x));
+end intrinsic;
+
+///## Approximations
+
+intrinsic WeakValuation(x :: FldPadExactElt) -> ValFldPadExactElt
+  {The weak valuation of x.}
+  return ExactpAdics_Val(BestApproximation(x));
+end intrinsic;
+
+intrinsic AbsolutePrecision(x :: FldPadExactElt) -> ValFldPadExactElt
+  {The weak valuation of x.}
+  return ExactpAdics_APr(BestApproximation(x));
+end intrinsic;
+
+intrinsic IsWeaklyZero(x :: FldPadExactElt) -> BoolElt
+  {True if x is weakly zero.}
+  return IsWeaklyZero(BestApproximation(x));
+end intrinsic;
+
+intrinsic WeakApproximation(x :: FldPadExactElt) -> FldPadExactElt
+  {An element weakly equal to x at its current precision.}
+  if IsWeaklyZero(x) then
+    return Zero(Parent(x));
+  end if;
+  xx := BestApproximation(x);
+  y := New(FldPadExactElt);
+  y`parent := Parent(x);
+  y`dependencies := [* Parent(x) *];
+  y`get_approximation := func<n, xds | ChangePrecision(xF ! xx, pr) where pr:=Precision(xF) where xF:=xds[1]>;
+  Init(y);
+  return y;
+end intrinsic;
+
+intrinsic EnsureAllApproximationsNonzero(x :: FldPadExactElt)
+  {Ensures that all approximations of x are non-zero.}
+  ok, n := IsDefinitelyNonzero(x : Minimize);
+  require ok: "x is weakly zero";
+  InterpolateUpTo(x, n);
+  assert forall{i : i in [1..n] | not IsWeaklyZero(x`approximations[n])};
+end intrinsic;

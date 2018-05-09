@@ -1,0 +1,152 @@
+///# Aggregates
+///## Tuples
+
+declare type SetCart_PadExact[Tup_PadExact]: StrPadExact;
+declare attributes SetCart_PadExact
+  : components
+  ;
+
+declare type Tup_PadExact: PadExactElt;
+declare attributes Tup_PadExact
+  : to_tuple
+  , to_sequence
+  ;
+
+///## Cartesian products
+
+intrinsic ExactpAdics_CartesianProduct(components :: Tup) -> SetCart_PadExact
+  {The cartesian product of the components.}
+  require forall{S : S in components | ISA(Type(S), StrPadExact)}: "components must all be p-adic structures";
+  C := New(SetCart_PadExact);
+  C`components := components;
+  C`dependencies := [* S : S in components *];
+  C`get_approximation := func<n, xCs | CartesianProduct(<xC : xC in xCs>)>;
+  Init(C);
+  return C;
+end intrinsic;
+
+intrinsic CartesianPower(S :: StrPadExact, n :: RngIntElt) -> SetCart_PadExact
+  {The nth cartesian power of S.}
+  return ExactpAdics_CartesianProduct(<S : i in [1..n]>);
+end intrinsic;
+
+///hide
+intrinsic Print(C :: SetCart_PadExact, lvl :: MonStgElt)
+  {Print.}
+  case lvl:
+  when "Magma":
+    printf "ExactpAdics_CartesianProduct(%m)", Components(C);
+  else
+    printf "Cartesian product of:";
+    for S in Components(C) do
+      print "";
+      IndentPush();
+      Print(S, lvl);
+      IndentPop();
+    end for;
+  end case;
+end intrinsic;
+
+///hide
+intrinsic Print(T :: Tup_PadExact, lvl :: MonStgElt)
+  {Print.}
+  printf "%o", BestApproximation(T);
+end intrinsic;
+
+///hide
+intrinsic InterpolateEpochs(T :: Tup_PadExact, n1 :: RngIntElt, n2 :: RngIntElt, xT2 :: Tup) -> List
+  {Interpolates between the given epochs.}
+  cs := [* InterpolateEpochs(T(i), n1, n2, xT2[i]) : i in [1..#T] *];
+  return [* Parent(T)`approximations[n] ! <cs[i][n-n1] : i in [1..#T]> : n in [n1+1..n2-1] *];
+end intrinsic;
+
+///## Creation of tuples
+
+intrinsic IsCoercible(C :: SetCart_PadExact, X) -> BoolElt, .
+  {True if X is coercible to an element of C.}
+  return false, "wrong type";
+end intrinsic;
+
+intrinsic IsCoercible(C :: SetCart_PadExact, X :: Tup_PadExact) -> BoolElt, .
+  {"}
+  if Parent(X) eq C then
+    return true, X;
+  end if;
+  return IsCoercible(C, ToTuple(X));
+end intrinsic;
+
+intrinsic IsCoercible(C :: SetCart_PadExact, X :: Tup) -> BoolElt, .
+  {"}
+  if #X ne NumberOfComponents(C) then
+    return false, "wrong length";
+  end if;
+  xs := [* *];
+  for i in [1..#X] do
+    ok, x := IsCoercible(C(i), X[i]);
+    if not ok then
+      return false, Sprintf("component %o: %o", i, x);
+    end if;
+    Append(~xs, x);
+  end for;
+  m := #X;
+  T := New(Tup_PadExact);
+  T`parent := C;
+  T`dependencies := [* C *] cat xs;
+  T`get_approximation := func<n, xds | xds[1] ! <xds[i+1] : i in [1..m]>>;
+  Init(T);
+  return true, T;
+end intrinsic;
+
+///## Basic operations
+
+intrinsic NumberOfComponents(C :: SetCart_PadExact) -> RngIntElt
+  {The number of components of C.}
+  return #C`components;
+end intrinsic;
+
+intrinsic '@'(i :: RngIntElt, C :: SetCart_PadExact) -> StrPadExact
+  {The ith component of C.}
+  return C`components[i];
+end intrinsic;
+
+intrinsic Components(C :: SetCart_PadExact) -> Tup
+  {The components of C.}
+  return C`components;
+end intrinsic;
+
+intrinsic '#'(T :: Tup_PadExact) -> RngIntElt
+  {The number of elements of T.}
+  return NumberOfComponents(Parent(T));
+end intrinsic;
+
+intrinsic '@'(i :: RngIntElt, T :: Tup_PadExact) -> PadExactElt
+  {The ith element of T.}
+  return ToTuple(T)[i];
+end intrinsic;
+
+intrinsic ToTuple(T :: Tup_PadExact) -> Tup
+  {Converts T to a regular tuple.}
+  if not assigned T`to_tuple then
+    C := Parent(T);
+    xs := [**];
+    for i in [1..NumberOfComponents(C)] do
+      x := New(ElementType(C`components[i]));
+      x`parent := C`components[i];
+      x`dependencies := [* T *];
+      x`get_approximation := func<n, xds | xds[1][i]>;
+      Init(x);
+      Append(~xs, x);
+    end for;
+    T`to_tuple := <x : x in xs>;    
+  end if;
+  return T`to_tuple;
+end intrinsic;
+
+intrinsic ToSequence(T :: Tup_PadExact) -> []
+  {Converts T to a sequence.}
+  if not assigned T`to_sequence then
+    T`to_sequence := [x : x in ToTuple(T)];
+  end if;
+  return T`to_sequence;
+end intrinsic;
+

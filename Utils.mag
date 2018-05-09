@@ -1,0 +1,197 @@
+Z := IntegerRing();
+Q := RationalField();
+OO := Infinity();
+
+NEXTID := ExactpAdics_NextId;
+
+WVAL := _ExactpAdics_WeakValuation;
+APR := _ExactpAdics_AbsolutePrecision;
+WZERO := IsWeaklyZero;
+CHANGE_APR := _ExactpAdics_ChangeAbsolutePrecision;
+CAP_APR := _ExactpAdics_CapAbsolutePrecision;
+CAP_PR := _ExactpAdics_CapPrecision;
+TRIM_PR := _ExactpAdics_TrimPrecision;
+ELTSEQ := _ExactpAdics_Eltseq;
+ISEXTOF := _ExactpAdics_IsExtensionOf;
+FIXPR := _ExactpAdics_FixPrecision;
+SHIFTARG := _ExactpAdics_ShiftArgument;
+SHIFTSLOPE := _ExactpAdics_ShiftSlope;
+WEQ := _ExactpAdics_IsWeaklyEqual;
+LAST := func<x | x[#x]>;
+TOWER := _ExactpAdics_Tower;
+
+intrinsic _ExactpAdics_ChangeAbsolutePrecision(x :: FldPadElt, n :: RngIntElt) -> FldPadElt
+  {Changes the absolute precision of x to n.}
+  if n le WVAL(x) or WZERO(x) then
+    return _ExactpAdics_Zero(Parent(x), n);
+  else
+    return ChangePrecision(x, n - WVAL(x));
+  end if;
+end intrinsic;
+
+intrinsic _ExactpAdics_ChangeAbsolutePrecision(x :: FldPadElt, n :: Infty) -> FldPadElt
+  {"}
+  assert AbsolutePrecision(x) eq n;
+  return x;
+end intrinsic;
+
+intrinsic _ExactpAdics_CapAbsolutePrecision(x :: FldPadElt, n :: RngIntElt) -> FldPadElt
+  {Caps the absolute precision of x to n.}
+  return n le APR(x) select CHANGE_APR(x, n) else x;
+end intrinsic;
+
+intrinsic _ExactpAdics_CapAbsolutePrecision(f :: RngUPolElt[FldPad], n :: RngIntElt) -> RngUPolElt
+  {Caps the absolute precision of f to n.}
+  return Parent(f) ! [CAP_APR(c, n) : c in Coefficients(f)];
+end intrinsic;
+
+intrinsic _ExactpAdics_TrimPrecision(x :: FldPadElt, n :: RngIntElt) -> FldPadElt
+  {Trims n from the precision of x.}
+  return n eq 0 or APR(x) eq OO select x else CAP_APR(x, APR(x)-n);
+end intrinsic;
+
+intrinsic _ExactpAdics_Zero(F :: FldPad, n :: RngIntElt) -> FldPadElt
+  {The zero of F to absolute precision n.}
+  z := (F!1) - (F!1);
+  z := ShiftValuation(z, n - WVAL(z));
+  return z;
+end intrinsic;
+
+intrinsic _ExactpAdics_WeakValuation(x :: FldPadElt) -> RngIntElt
+  {Weak valuation.}
+  return Valuation(x);
+end intrinsic;
+
+intrinsic _ExactpAdics_AbsolutePrecision(x :: FldPadElt) -> RngIntElt
+  {The absolute precision of x.}
+  return AbsolutePrecision(x);
+end intrinsic;
+
+intrinsic _ExactpAdics_CapPrecision(x :: FldPadElt, n :: RngIntElt) -> FldPadElt
+  {Caps the precision of x.}
+  assert n ge 0;
+  a := WVAL(x) + n;
+  return APR(x) le a select x else CAP_APR(x, a);
+end intrinsic;
+
+intrinsic _ExactpAdics_CapPrecision(f :: RngUPolElt, n :: RngIntElt) -> RngUPolElt
+  {Caps the precision of f.}
+  assert n ge 0;
+  return Parent(f) ! [_ExactpAdics_CapPrecision(c, n) : c in Coefficients(f)];
+end intrinsic;
+
+intrinsic _ExactpAdics_Eltseq(x :: FldPadElt) -> []
+  {The coefficients of x over its base field.}
+  cs := Eltseq(x);
+  e := RamificationDegree(Parent(x));
+  if e ne 1 then
+    cs := [BaseRing(Parent(x))| TRIM_PR(c, 2) : c in cs];
+  end if;
+  return cs;
+end intrinsic;
+
+intrinsic _ExactpAdics_IsExtensionOf(E :: FldPad, F :: FldPad) -> BoolElt
+  {True if E is an extension of F.}
+  ok, S := ExistsCoveringStructure(E, F);
+  return ok and S eq E;
+end intrinsic;
+
+function eisensteinPolyDefinesUniqueExtension(f)
+  d := Degree(f);
+  assert IsEisenstein(f);
+  D := Discriminant(f);
+  if WZERO(D) then
+    return false;
+  end if;
+  vD := WVAL(D);
+  j := vD - d + 1;
+  FUDGE := 2*d*AbsoluteRamificationDegree(BaseRing(f));
+  apr := Floor(1+2*j/d) + 1 + FUDGE;
+  return forall{c : c in Coefficients(f) | AbsolutePrecision(c) ge apr};
+end function;
+
+// true if E/BaseField(E) determines a unique extension
+function isDefinitelyUnique1(E)
+  if Precision(E) eq OO then
+    return true;
+  end if;
+  f := DefiningPolynomial(E);
+  d := Degree(E);
+  if IsUnramified(E) then
+    assert IsInertial(f);
+    return forall{c : c in Coefficients(f) | AbsolutePrecision(c) ge 1};
+  elif IsTotallyRamified(E) then
+    return eisensteinPolyDefinesUniqueExtension(f);
+  else
+    assert false;
+  end if;
+end function;
+
+// function isDefinitelyUnique(E, F)
+//   twr := TOWER(E, F);
+//   return forall{i : i in [2..#twr] | isDefinitelyUnique1(twr[i])};
+// end function;
+
+intrinsic _ExactpAdics_FixPrecision(f :: RngUPolElt[FldPad]) -> RngUPolElt
+  {Coerces f to a fixed precision version.}
+  F := BaseRing(f);
+  assert Precision(F) eq OO;
+  pr := Z ! Max([Precision(c) : c in Coefficients(f) | not IsWeaklyZero(f)] cat [1]);
+  return PolynomialRing(ChangePrecision(F, pr)) ! f;
+end intrinsic;
+
+intrinsic _ExactpAdics_ShiftArgument(f :: RngUPolElt, x) -> RngUPolElt
+  {Shifts the argument of f by x.}
+  return Evaluate(f, Parent(f).1 + x);
+end intrinsic;
+
+intrinsic _ExactpAdics_ShiftSlope(f :: RngUPolElt[FldPad], n :: RngIntElt : Offset:=0, Pivot:=0) -> RngUPolElt
+  {Shifts the slope of f by n.}
+  return Parent(f) ! [ShiftValuation(Coefficient(f, i), n*(i-Pivot)+Offset) : i in [0..Degree(f)]];
+end intrinsic;
+
+intrinsic _ExactpAdics_IsWeaklyEqual(x :: FldPadElt, y :: FldPadElt) -> BoolElt
+  {"}
+  ok, F := ExistsCoveringStructure(Parent(x), Parent(y));
+  require ok: "different fields";
+  x := F ! x;
+  y := F ! y;
+  apr := Min(AbsolutePrecision(x), AbsolutePrecision(y));
+  return IsWeaklyEqual(CHANGE_APR(x, apr), CHANGE_APR(y, apr));
+end intrinsic;
+
+intrinsic _ExactpAdics_IsWeaklyEqual(x :: RngUPolElt[FldPad], y :: RngUPolElt[FldPad]) -> BoolElt
+  {"}
+  dx := Degree(x);
+  dy := Degree(y);
+  d := Min(dx, dy);
+  C := Coefficient;
+  return forall{i : i in [0..d] | WEQ(C(x,i), C(y,i))} and forall{i : i in [d+1..dx] | WZERO(C(x,i))} and forall{i : i in [d+1..dy] | WZERO(C(y,i))};
+end intrinsic;
+
+intrinsic _ExactpAdics_IsWeaklyEqual(x :: RngMPolElt, y :: RngMPolElt) -> BoolElt
+  {"}
+  mxs := {Exponents(m) : m in Monomials(x)};
+  mys := {Exponents(m) : m in Monomials(y)};
+  C := func<x,m | MonomialCoefficient(x, Monomial(Parent(x), m))>;
+  return forall{m : m in mxs meet mys | WEQ(C(x,m), C(y,m))}
+    and forall{m : m in mxs diff mys | WZERO(C(x,m))}
+    and forall{m : m in mys diff mxs | WZERO(C(y,m))};
+end intrinsic;
+
+intrinsic _ExactpAdics_IsWeaklyEqual(x :: Tup, y :: Tup) -> BoolElt
+  {"}
+  require #x eq #y: "different lengths";
+  return forall{i : i in [1..#x] | WEQ(x[i], y[i])};
+end intrinsic;
+
+intrinsic _ExactpAdics_Tower(E :: FldPad, F :: FldPad) -> []
+  {The tower of fields from F up to E.}
+  if F eq E then
+    return [F];
+  elif IsPrimeField(E) then
+    error "not an extension";
+  else
+    return _ExactpAdics_Tower(BaseField(E), F) cat [E];
+  end if;
+end intrinsic;

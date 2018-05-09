@@ -1,0 +1,15 @@
+freeze;
+
+declare type ExactpAdics_State;
+declare attributes ExactpAdics_State: next_id;
+
+STATE := New(ExactpAdics_State);
+STATE`next_id := 1;
+
+intrinsic ExactpAdics_NextId() -> RngIntElt
+  {The next global id.}
+  s := STATE;
+  id := s`next_id;
+  s`next_id := id + 1;
+  return id;
+end intrinsic;

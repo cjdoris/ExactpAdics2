@@ -1,0 +1,278 @@
+import "Utils.mag": Z, NEXTID, WEQ;
+
+DEFAULT_MAX_EPOCH := 28;
+
+// represents any exact p-adic object (structure or element)
+declare type AnyPadExact;
+declare attributes AnyPadExact
+  : id                   // global id
+  , approximations       // list of approximations corresponding to each epoch
+  , dependencies         // list of other AnyPadExact's this depends on
+  , get_approximation    // function([*dependency approximations*]) -> approximation (or any callable)
+  , min_epoch            // the first epoch we should call get_approximation on
+  , max_epoch            // the last epoch we should call get_approximation on (not currently enforced)
+  , internal_data        // internal data which can be freely modified by get_approximation
+  ;
+
+// exact p-adic structure
+declare type StrPadExact[PadExactElt]: AnyPadExact;
+
+// exact p-adic element
+declare type PadExactElt: AnyPadExact;
+declare attributes PadExactElt
+  : parent               // parent
+  ;
+
+// valuation of a p-adic object
+declare type ValPadExact;
+
+procedure bring_to_epoch(xs, n)
+  assert n ge 1;
+  // recursively find all dependencies
+  todo := [* <x, n> : x in xs *];
+  deps := [* *];
+  ids := {@ Z| @};
+  while #todo ne 0 do
+    // pop an item from the todo list
+    x, n := Explode(todo[1]);
+    todo := todo[2..#todo];
+    // check if we have exceeded the max_epoch
+    if assigned x`max_epoch and n gt x`max_epoch then
+      error "precision error: max_epoch exceeded";
+    end if;
+    // check if it needs to be updated
+    if #x`approximations lt n then
+      // check if it already has a dependency
+      if x`id in ids then
+        // check if it needs to be increased
+        i := Index(ids, x`id);
+        if n gt deps[i][2] then
+          deps[i][2] := n;
+          for d in x`dependencies do
+            Append(~todo, <d, n>);
+          end for;
+        end if;
+      else
+        // if not, create a new dependency
+        n2 := Max(n, x`min_epoch);
+        Include(~ids, x`id);
+        Append(~deps, <x, n2>);
+        for d in x`dependencies do
+          Append(~todo, <d, n2>);
+        end for;
+      end if;
+    end if;
+  end while;
+  // sort the dependencies
+  deps_ids := [Z| d[1]`id : d in deps];
+  Sort(~deps_ids, ~permut);
+  deps := [* deps[i^permut] : i in [1..#deps] *];
+  assert forall{i : i in [2..#deps] | deps[i-1][1]`id lt deps[i][1]`id};
+  // satisfy the dependencies
+  for i in [1..#deps] do
+    x, n := Explode(deps[i]);
+    assert n gt #x`approximations and n ge x`min_epoch;
+    xds := [* d`approximations[n] : d in x`dependencies *];
+    xx := GetApproximation(x`get_approximation, n, xds);
+    SetApproximation(x, n, xx);
+    assert #x`approximations eq n;
+  end for;
+end procedure;
+
+intrinsic BringToEpoch(xs :: [AnyPadExact], n :: RngIntElt)
+  {Brings each `x` in `xs` to epoch `n`.}
+  bring_to_epoch(xs, n);
+end intrinsic;
+
+intrinsic BringToEpoch(x :: AnyPadExact, n :: RngIntElt)
+  {"}
+  bring_to_epoch([*x*], n);
+end intrinsic;
+
+intrinsic EpochApproximation(xs :: [AnyPadExact], n :: RngIntElt) -> []
+  {"}
+  BringToEpoch(xs, n);
+  return [x`approximations[n] : x in xs];
+end intrinsic;
+
+intrinsic EpochApproximation(x :: AnyPadExact, n :: RngIntElt) -> .
+  {"}
+  BringToEpoch(x, n);
+  return x`approximations[n];
+end intrinsic;
+
+intrinsic InterpolateEpochs(x :: AnyPadExact, n1 :: RngIntElt, n2 :: RngIntElt, xx2) -> List
+  {The approximations for epochs [n1+1..n2-1].}
+  if n1+1 ge x`min_epoch then
+    return [* GetApproximation(x`get_approximation, n, [*d`approximations[n] : d in x`dependencies*]) : n in [n1+1..n2-1] *];
+  end if;
+  error "not implemented: InterpolateEpochs:", Type(x);
+end intrinsic;
+
+intrinsic GetApproximation(get, n :: RngIntElt, xds :: List) -> .
+  {Gets an approximation using get.}
+  error "not implemented: GetApproximation:", Type(get);
+end intrinsic;
+
+intrinsic GetApproximation(get :: UserProgram, n :: RngIntElt, xds :: List) -> .
+  {"}
+  return get(n, xds);
+end intrinsic;
+
+intrinsic Init_AnyPadExact(x :: AnyPadExact)
+  {Initializes x.}
+  assert assigned x`dependencies;
+  assert assigned x`get_approximation;
+  if not assigned x`min_epoch then
+    x`min_epoch := 1;
+  else
+    assert x`min_epoch ge 1;
+  end if;
+  x`id := NEXTID();
+  assert forall{d : d in x`dependencies | d`id lt x`id};
+  if not assigned x`max_epoch and #x`dependencies eq 0 then
+    x`max_epoch := DEFAULT_MAX_EPOCH;
+  end if;
+  x`approximations := [**];
+end intrinsic;
+
+intrinsic Init_PadExactElt(x :: PadExactElt)
+  {"}
+  assert assigned x`parent;
+  Init_AnyPadExact(x);
+end intrinsic;
+
+intrinsic Init(x :: AnyPadExact)
+  {"}
+  Init_AnyPadExact(x);
+end intrinsic;
+
+intrinsic Init(x :: PadExactElt)
+  {"}
+  Init_PadExactElt(x);
+end intrinsic;
+
+intrinsic Parent(x :: PadExactElt) -> StrPadExact
+  {The parent of x.}
+  return x`parent;
+end intrinsic;
+
+intrinsic BestApproximation(x :: AnyPadExact) -> .
+  {The best approximation to x.}
+  if #x`approximations eq 0 then
+    BringToEpoch(x, 1);
+  end if;
+  return x`approximations[#x`approximations];
+end intrinsic;
+
+///hide
+intrinsic 'eq'(E :: StrPadExact, F :: StrPadExact) -> RngIntElt
+  {Equality.}
+  return IsIdentical(E, F);
+end intrinsic;
+
+intrinsic ExistsEpochWith(x :: AnyPadExact, pred) -> BoolElt, RngIntElt
+  {True if there is an epoch of x such that `pred(x)` is true. If so, returns it.}
+  if #x`approximations eq 0 then
+    BringToEpoch(x, 1);
+  end if;
+  while not pred(x) do
+    BringToEpoch(x, #x`approximations+1);
+  end while;
+  return true, #x`approximations;
+end intrinsic;
+
+intrinsic ExistsEpochWithApproximation(x :: AnyPadExact, pred : FromTop:=false, Minimize:=false) -> BoolElt, RngIntElt
+  {True if there is an epoch of x such that `pred(xx)` is true, where `xx` is the corresponding approximation. If so, returns it.}
+  if #x`approximations eq 0 then
+    BringToEpoch(x, 1);
+  end if;
+  nmin := FromTop select #x`approximations else 1;
+  n := nmin;
+  while not pred(x`approximations[n]) do
+    n +:= 1;
+    BringToEpoch(x, n);
+  end while;
+  if Minimize and n eq nmin then
+    while n gt 1 and pred(x`approximations[n-1]) do
+      n -:= 1;
+    end while;
+  end if;
+  return true, n;
+end intrinsic;
+
+intrinsic FirstEpochWithApproximation(x :: AnyPadExact, pred : FromTop:=false) -> RngIntElt
+  {The first epoch whose approximation satisfies the predicate.}
+  ok, n := ExistsEpochWithApproximation(x, pred : FromTop:=FromTop, Minimize);
+  error if not ok, "precision error";
+  return n;
+end intrinsic;
+
+intrinsic IncreaseEpochUntil(x :: AnyPadExact, pred)
+  {Increases the epoch of x until `pred(x)` is true.}
+  ok := ExistsEpochWith(x, pred);
+  error if not ok, "precision error";
+end intrinsic;
+
+intrinsic IncreaseAbsolutePrecision(x :: PadExactElt, apr)
+  {Increases the absolute precision of x to at least apr.}
+  ok, a := IsValidAbsolutePrecisionDiff(x, apr);
+  require ok: "apr is not a valid absolute precision for x";
+  IncreaseEpochUntil(x, func<x | AbsolutePrecision(x) ge a>);
+end intrinsic;
+
+intrinsic InterpolateUpTo(x :: AnyPadExact, n :: RngIntElt)
+  {Replaces the approximations of x below n with their interpolations.}
+  require n ge 0: "n must be at least 0";
+  if n eq 0 then
+    return;
+  end if;
+  require n le #x`approximations: "n must be at most the current epoch";
+  apprs := InterpolateEpochs(x, 0, n, x`approximations[n]);
+  assert #apprs eq n-1;
+  for i in [1..#apprs] do
+    SetApproximation(x, i, apprs[i]);
+  end for;
+end intrinsic;
+
+intrinsic InterpolateUpToFirstEpochWithApproximation(x :: AnyPadExact, pred : FromTop:=false) -> RngIntElt, RngIntElt
+  {Replaces the approximations of x below n with their interpolations, where n is the first epoch whose approximation satisfies the predicate. Returns the new and old values of n.}
+  n := FirstEpochWithApproximation(x, pred : FromTop:=false);
+  InterpolateUpTo(x, n);
+  return FirstEpochWithApproximation(x, pred : FromTop:=false), n;
+end intrinsic;
+
+intrinsic SetApproximation(x :: AnyPadExact, n :: RngIntElt, xx)
+  {Sets the approximation of x at epoch n to xx.}
+  require IsValidApproximation(x, n, xx): "xx is not a valid approximation of x at epoch n";
+  SetApproximationHook(x, n, ~xx);
+  if n gt #x`approximations then
+    if n gt #x`approximations + 1 then
+      apprs := InterpolateEpochs(x, #x`approximations, n, xx);
+      assert #apprs eq n - #x`approximations - 1;
+      for appr in apprs do
+        SetApproximation(x, #x`approximations + 1, appr);
+      end for;
+    end if;
+    assert #x`approximations eq n-1;
+    Append(~x`approximations, xx);
+    assert #x`approximations eq n;
+  else
+    x`approximations[n] := xx;
+  end if;
+end intrinsic;
+
+intrinsic SetApproximationHook(x :: AnyPadExact, n :: RngIntElt, ~xx)
+  {Overload this to modify the approximation xx before setting it.}
+  return;
+end intrinsic;
+
+intrinsic IsValidApproximation(x :: AnyPadExact, n :: RngIntElt, xx) -> BoolElt
+  {True if xx is a valid approximation of x at epoch n.}
+  return true;
+end intrinsic;
+
+intrinsic IsValidApproximation(x :: PadExactElt, n :: RngIntElt, xx) -> BoolElt
+  {"}
+  return Parent(xx) cmpeq EpochApproximation(Parent(x), n) and (#x`approximations eq 0 or WEQ(BestApproximation(x), xx));
+end intrinsic;

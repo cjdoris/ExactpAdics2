@@ -1,0 +1,573 @@
+///# Multivariate polynomials
+
+import "Utils.mag": Z, Q, OO, WVAL, WZERO, WEQ, CAP_APR;
+import "Promotion.mag": do_binop;
+
+declare type RngMPol_FldPadExact[RngMPolElt_FldPadExact]: StrPadExact;
+declare attributes RngMPol_FldPadExact
+  : base_ring
+  , rank
+  , varnames
+  // cache
+  , generator
+  , generators
+  , zero
+  , one
+  ;
+
+declare type RngMPolElt_FldPadExact: PadExactElt;
+declare attributes RngMPolElt_FldPadExact
+  // cache
+  : weak_monomials
+  , weak_coefficients
+  , is_monomial
+  , exponents
+  ;
+
+///## Creation of rings
+
+intrinsic PolynomialRing(F :: FldPadExact, k :: RngIntElt) -> RngMPol_FldPadExact
+  {The polynomial ring of rank k over F.}
+  require k ge 0: "n must be at least 0";
+  if not assigned F`mvar_polynomial_ring then
+    F`mvar_polynomial_ring := [];
+  end if;
+  if not IsDefined(F`mvar_polynomial_ring, k+1) then
+    R := New(RngMPol_FldPadExact);
+    R`base_ring := F;
+    R`rank := k;
+    R`dependencies := [* F *];
+    R`get_approximation := func<n, xds | PolynomialRing(xds[1], k)>;
+    Init(R);
+    F`mvar_polynomial_ring[k+1] := R;
+  end if;
+  return F`mvar_polynomial_ring[k+1];
+end intrinsic;
+
+///hide
+intrinsic Print(R :: RngMPol_FldPadExact, lvl :: MonStgElt)
+  {Print.}
+  case lvl:
+  when "Magma":
+    printf "PolynomialRing(%o, %o)", BaseRing(R), Rank(R);
+  else
+    printf "Polynomial ring of rank %O", Rank(R), lvl;
+    if assigned R`varnames and #R`varnames ne 0 then
+      printf " in %o", Join([IsDefined(R`varnames, i) select R`varnames[i] else "undef" : i in [1..#R`varnames]] cat (#R`varnames lt R`rank select ["..."] else []), ", ");
+    end if;
+    printf " over %O", BaseRing(R), lvl;
+  end case;
+end intrinsic;
+
+///hide
+intrinsic Print(f :: RngMPolElt_FldPadExact, lvl :: MonStgElt)
+  {Print.}
+  printf "%o", BestApproximation(f);
+end intrinsic;
+
+///## Basic operations on rings
+
+intrinsic BaseRing(R :: RngMPol_FldPadExact) -> FldPadExact
+  {The base ring of R.}
+  return R`base_ring;
+end intrinsic;
+
+///hide
+intrinsic BaseRing(f :: RngMPolElt_FldPadExact) -> FldPadExact
+  {The base ring of f.}
+  return BaseRing(Parent(f));
+end intrinsic;
+
+intrinsic Rank(R :: RngMPol_FldPadExact) -> RngIntElt
+  {The rank of R.}
+  return R`rank;
+end intrinsic;
+
+///hide
+intrinsic 'eq'(R :: RngMPol_FldPadExact, S :: RngMPol_FldPadExact) -> BoolElt
+  {Equality.}
+  return R`id eq S`id;
+end intrinsic;
+
+intrinsic Generator(R :: RngMPol_FldPadExact, i :: RngIntElt) -> RngMPolElt_FldPadExact
+  {The ith generator of R.}
+  require i ge 1 and i le Rank(R): "i out of range";
+  if not assigned R`generator then
+    R`generator := [R|];
+  end if;
+  if not IsDefined(R`generator, i) then
+    R`generator[i] := Monomial(R, [i eq j select 1 else 0 : j in [1..Rank(R)]]);
+  end if;
+  return R`generator[i];
+end intrinsic;
+
+intrinsic Generators(R :: RngMPol_FldPadExact) -> []
+  {The generators of R.}
+  if not assigned R`generators then
+    R`generators := [R| Generator(R, i) : i in [1..Rank(R)]];
+  end if;
+  return R`generators;
+end intrinsic;
+
+///hide
+intrinsic Name(R :: RngMPol_FldPadExact, i :: RngIntElt) -> RngMPolElt_FldPadExact
+  {The ith generator of R.}
+  return Generator(R, i);
+end intrinsic;
+
+///hide
+intrinsic '.'(R :: RngMPol_FldPadExact, i :: RngIntElt) -> RngMPolElt_FldPadExact
+  {The ith generator of R.}
+  return Generator(R, i);
+end intrinsic;
+
+///hide
+intrinsic AssignNames(~R :: RngMPol_FldPadExact, names :: [MonStgElt])
+  {Assigns names to the generators of R.}
+  require #names le Rank(R): "number of names must be at most the rank";
+  R`varnames := names;
+  for i in [1..#R`approximations] do
+    AssignNames(~R`approximations[i], R);
+  end for;
+end intrinsic;
+
+///hide
+intrinsic AssignNames(~xR :: RngMPol, R :: RngMPol_FldPadExact)
+  {Assigns names to the generators of xR from R.}
+  if assigned R`varnames then
+    AssignNames(~xR, R`varnames);
+  else
+    AssignNames(~xR, []);
+  end if;
+end intrinsic;
+
+///hide
+intrinsic SetApproximationHook(R :: RngMPol_FldPadExact, n :: RngIntElt, ~xR :: RngMPol)
+  {Called by SetApproximation.}
+  AssignNames(~xR, R);
+end intrinsic;
+
+///hide
+intrinsic Zero(R :: RngMPol_FldPadExact) -> RngMPolElt_FldPadExact
+  {The zero of R.}
+  if not assigned R`zero then
+    R`zero := R ! 0;
+  end if;
+  return R`zero;
+end intrinsic;
+
+///hide
+intrinsic One(R :: RngMPol_FldPadExact) -> RngMPolElt_FldPadExact
+  {The one of R.}
+  if not assigned R`one then
+    R`one := R ! 1;
+  end if;
+  return R`one;
+end intrinsic;
+
+///## Creation of polynomials
+
+/// The following are coercible to a multivariate polynomial over R:
+/// - An element of R.
+/// - An element of the base ring of R.
+/// - A multivariate polynomial of correct rank whose coefficients are coercible into the base ring of R.
+/// - A sequence of tuples, whose first element is a coefficient and whose second element is an exponent vector.
+intrinsic IsCoercible(R :: RngMPol_FldPadExact, X) -> BoolElt, .
+  {True if X is coercible to an element of R.}
+  ok, x := IsCoercible(BaseRing(R), X);
+  if ok then
+    f := New(RngMPolElt_FldPadExact);
+    f`parent := R;
+    f`dependencies := [* R, x *];
+    f`get_approximation := func<n, xds | xds[1] ! xds[2]>;
+    Init(f);
+    return true, f;
+  end if;
+  return false, "not coercible to the base ring";
+end intrinsic;
+
+///hide
+intrinsic IsCoercible(R :: RngMPol_FldPadExact, X :: RngMPolElt_FldPadExact) -> BoolElt, .
+  {"}
+  if Parent(X) eq R then
+    return true, X;
+  end if;
+  cs, ms := WeakCoefficientsAndMonomials(R);
+  return IsCoercible(R, [<cs[i], Exponents(ms[i])> : i in [1..#cs]]);
+end intrinsic;
+
+///hide
+intrinsic IsCoercible(R :: RngMPol_FldPadExact, X :: RngMPolElt) -> BoolElt, .
+  {"}
+  cs, ms := CoefficientsAndMonomials(X);
+  return IsCoercible(R, [<cs[i], Exponents(ms[i])> : i in [1..#cs]]);
+end intrinsic;
+
+///hide
+intrinsic IsCoercible(R :: RngMPol_FldPadExact, X :: []) -> BoolElt, .
+  {"}
+  if #X eq 0 then
+    return true, Zero(R);
+  else
+    return false, "wrong type";
+  end if;
+end intrinsic;
+
+///hide
+intrinsic IsCoercible(R :: RngMPol_FldPadExact, X :: [Tup]) -> BoolElt, .
+  {"}
+  U := Universe(X);
+  if NumberOfComponents(U) ne 2 then
+    return false, _;
+  end if;
+  ok, cs := IsCoercible(PowerSequence(BaseRing(R)), [x[1] : x in X]);
+  if not ok then
+    return false, "coefficients not coercible to base ring";
+  end if;
+  ok, es := IsCoercible(PowerSequence(PowerSequence(Z)), [x[2] : x in X]);
+  k := Rank(R);
+  if (not ok) or exists{e : e in es | #e ne k} then
+    return false, "exponent vectors not coercible to sequences of integers of correct length";
+  end if;
+  assert #cs eq #es;
+  f := New(RngMPolElt_FldPadExact);
+  f`parent := R;
+  f`dependencies := [* R *] cat [* c : c in cs *];
+  f`get_approximation := func<n, xds | Polynomial(cs, ms) where ms:=[R|Monomial(R,e):e in es] where cs:=[F|c:c in xds[2..#xds]] where F:=BaseRing(R) where R:=xds[1]>;
+  Init(f);
+  return true, f;
+end intrinsic;
+
+///## Basic operations on polynomials
+
+intrinsic MonomialCoefficient(f :: RngMPolElt_FldPadExact, m :: RngMPolElt_FldPadExact) -> FldPadExactElt
+  {The coefficient of monomial m in f.}
+  require Parent(f) eq Parent(m): "f and m must come from the same ring";
+  return ExponentsCoefficient(f, Exponents(m));
+end intrinsic;
+
+intrinsic ExponentsCoefficient(f :: RngMPolElt_FldPadExact, e :: [RngIntElt]) -> FldPadExactElt
+  {The coefficient of exponent e in f.}
+  require #e eq Rank(Parent(f)) and forall{x : x in e | x ge 0}: "e must be a sequence of non-negative integers whose length is the rank of f";
+  c := New(FldPadExactElt);
+  c`parent := BaseRing(f);
+  c`dependencies := [* f *];
+  c`get_approximation := func<n, xds | MonomialCoefficient(xds[1], Monomial(Parent(xds[1]), e))>;
+  Init(c);
+  return c;
+end intrinsic;
+
+intrinsic Monomial(R :: RngMPol_FldPadExact, e :: [RngIntElt]) -> FldPadExactElt
+  {The monomial of R with exponents e.}
+  m := R ! [<1, e>];
+  m`is_monomial := true;
+  m`exponents := e;
+  return m;
+end intrinsic;
+
+intrinsic IsDefinitelyMonomial(f :: RngMPolElt_FldPadExact) -> BoolElt, []
+  {True if f is definitely a monomial (i.e. has one term). If so, also returns its exponents.}
+  if not assigned f`is_monomial then
+    for n in [Max(1,#f`approximations)..99999] do
+      xf := EpochApproximation(f, n);
+      cs, ms := CoefficientsAndMonomials(xf);
+      if #cs eq 1 and not IsWeaklyZero(cs[1]) then
+        f`is_monomial := true;
+        f`exponents := Exponents(ms[1]);
+        return true, f`exponents;
+      elif #[c : c in cs | not IsWeaklyZero(c)] ge 2 then
+        f`is_monomial := false;
+        return false, _;
+      end if;
+    end for;
+  end if;
+  if f`is_monomial then
+    return true, f`exponents;
+  else
+    return false, _;
+  end if;
+end intrinsic;
+
+intrinsic Exponents(m :: RngMPolElt_FldPadExact) -> []
+  {The exponents of m, which must be a monomial.}
+  ok, e := IsDefinitelyMonomial(m);
+  require ok: "might not be a monomial";
+  return e;
+end intrinsic;
+
+///## Approximation
+
+intrinsic WeakMonomials(f :: RngMPolElt_FldPadExact) -> []
+  {The monomials of f. Some of the corresponding coefficients may be zero.}
+  if not assigned f`weak_monomials then
+    R := Parent(f);
+    F := BaseRing(R);
+    es := [Exponents(m) : m in Monomials(BestApproximation(f))];
+    ms := [R| Monomial(R, e) : e in es];
+    f`weak_monomials := ms;
+  end if;
+  return f`weak_monomials;
+end intrinsic;
+
+intrinsic WeakCoefficients(f :: RngMPolElt_FldPadExact) -> []
+  {The coefficients of f corresponding to `WeakMonomials(f)`.}
+  if not assigned f`weak_coefficients then
+    es := [Exponents(m) : m in WeakMonomials(f)];
+    cs := [ExponentsCoefficient(f, e) : e in es];
+    f`weak_coefficients := cs;
+  end if;
+  return f`weak_coefficients;
+end intrinsic;
+
+intrinsic WeakCoefficientsAndMonomials(f :: RngMPolElt_FldPadExact) -> [], []
+  {The coefficients and monomials of f.}
+  return WeakCoefficients(f), WeakMonomials(f);
+end intrinsic;
+
+///## Printing
+
+///## Hensel lifting
+
+function satisfy_integer_contraints(S, T)
+  n := #S;
+  repeat
+    done := true;
+    for t in T do
+      i,v,e := Explode(t);
+      b := v + &+[e[j] eq 0 select 0 else e[j]*S[j] : j in [1..n]];
+      if S[i] gt b-1 then
+        if e[i] ge 1 then
+          return false, _;
+        else
+          S[i] := b - 1;
+          done := false;
+        end if;
+      end if;
+    end for;
+  until done;
+  return true, S;
+end function;
+
+function intvl_make(a, b)
+  return <a, b>;
+end function;
+
+function intvl_make_pt(a)
+  return intvl_make(a, a);
+end function;
+
+function intvl_is_pt(x)
+  return x[1] eq x[2];
+end function;
+
+function intvl_is_empty(x)
+  return x[1] gt x[2];
+end function;
+
+function intvl_meet(x, y)
+  return intvl_make(Max(x[1], y[1]), Min(x[2], y[2]));
+end function;
+
+function intvl_neg(x)
+  return intvl_make(-x[2], -x[1]);
+end function;
+
+function intvl_add(x, y)
+  return intvl_make(x[1] + y[1], x[2] + y[2]);
+end function;
+
+function intvl_sub(x, y)
+  return intvl_make(x[1] - y[2], x[2] - y[1]);
+end function;
+
+function intvl_subset(x, y)
+  return x[1] ge y[1] and x[2] le y[2];
+end function;
+
+function intvl_smul(x, y)
+  return y ge 0 select intvl_make(x[1]*y, x[2]*y) else intvl_make(x[2]*y, x[1]*y);
+end function;
+
+function intvl_make_wval(x)
+  v := WVAL(x);
+  return intvl_make(v, WZERO(x) select OO else v);
+end function;
+
+function intvl_sum(xs)
+  return intvl_make(&+[x[1] : x in xs], &+[x[2] : x in xs]);
+end function;
+
+// dot product
+function dprod(xs, ys)
+  n := #xs;
+  assert #ys eq n;
+  return &+[xs[i] * ys[i] : i in [1..n]];
+end function;
+
+/// True if `xs` are Hensel liftable to a system of roots of `fs`. If so, also returns the system of roots.
+/// 
+/// `fs` must be a system of `n` equations of rank `n`, and `xs` must be a sequence of `n` p-adic numbers.
+/// 
+///param Strategy:="default" The precision strategy to use.
+///param Slopes When given, must be a sequence of `n` rationals to slope the equations by. That is, conceptually we multiply the `i`th variable by `pi^Slopes[i]` and `xs[i]` correspondingly by `pi^-Slopes[i]`. When not given, the zero slope is used.
+///param Shifts When given, must be a sequence of `n` rationals to shift the equations by. That is, conceptually we multiply the `i`th equation by `pi^Shifts[i]`. When not given, the best shifts are chosen.
+///param AsTuple:=false When `true`, the solution is returned as a `Tup_FldPad`, not as a sequence.
+intrinsic IsHenselLiftable(fs :: [RngMPolElt_FldPadExact], xs :: [FldPadExactElt] : Strategy:="default", Slopes:=false, Shifts:=false, AsTuple:=false) -> BoolElt, []
+  {True if xs are Hensel liftable to roots of fs. If so, also returns the lifted roots.}
+  n := Rank(Universe(fs));
+  require #fs eq n: "Number of polynomials must equal polynomial rank";
+  require #xs eq n: "Length of solution must equal polynomial rank";
+  // put fs and xs over the same field
+  K := Universe(xs);
+  if BaseRing(Universe(fs)) ne K then
+    R := PolynomialRing(K, n);
+    ok, fs := CanChangeUniverse(fs, R);
+    require ok: "Polynomial coefficients must be coercible to same field as solution";
+  else
+    R := Universe(fs);
+  end if;
+  // check the Slopes
+  if Slopes cmpeq false then
+    Slopes := [Q| 0 : i in [1..n]];
+  else
+    ok, Slopes := IsCoercible(PowerSequence(Q), Slopes);
+    require ok and #Slopes eq n: "Slopes must be false or a sequence of n rationals";
+  end if;
+  // check the Shifts
+  if Shifts cmpeq false then
+    ;
+  else
+    ok, Shifts := IsCoercible(PowerSequence(Q), Shifts);
+    require ok and #Shifts eq n: "Shifts must be false or a sequence of n rationals";
+  end if;
+  // check the Hensel condition
+  for epoch in [1..99999] do
+    // get approximations
+    xfs := [EpochApproximation(f, epoch) : f in fs];
+    xxs := [EpochApproximation(x, epoch) : x in xs];
+    xR := EpochApproximation(R, epoch);
+    xK := BaseRing(xR);
+    assert Universe(xfs) eq xR;
+    assert Universe(xxs) eq xK;
+
+    // // annoyingly, Magma caches the monomials xR.i, and in particular its coefficient is 1 to some fixed precision
+    // // so this monomial function forces the coefficient to be 1 to the current precision
+    // monomial := func<e | Polynomial([xK!1], [Monomial(xR, e)])>;
+    // one := monomial([0 : i in [1..n]]);
+    // X := [monomial([i eq j select 1 else 0 : j in [1..n]]) : i in [1..n]];
+
+    // shift the argument
+    xgs := [Evaluate(xf, [xR.i + xxs[i] : i in [1..n]]) : xf in xfs];
+
+    // conceptually we consider xhs[i] = pi^Shifts[i] + xgs[i](pi^Slopes * x)
+    // v(xhs[i][e]) = Shifts[i] + Slopes*e + v(xgs[i][e])
+
+    // The slopes are given.
+    slopes := Slopes;
+    if Shifts cmpeq false then
+      // Choose shifts to make everything integral
+      shifts_max := [(#vs eq 0 select Infinity() else -Min(vs)) where vs:=[dprod(slopes, e) + v where e:=Exponents(m) : m in Monomials(xg) | v lt Infinity() where v:=Valuation(c) where c:=MonomialCoefficient(xg,m)] : xg in xgs];
+      shifts_min := [(#vs eq 0 select Infinity() else -Min(vs)) where vs:=[dprod(slopes, e) + v where e:=Exponents(m) : m in Monomials(xg) | v lt Infinity() and not IsWeaklyZero(c) where v:=Valuation(c) where c:=MonomialCoefficient(xg,m)] : xg in xgs];
+    else
+      shifts_min := Shifts;
+      shifts_max := Shifts;
+    end if;
+
+    // check the equations are integral
+    for i in [1..n] do
+      xg := xgs[i];
+      for m in Monomials(xg) do
+        c := MonomialCoefficient(xg, m);
+        e := Exponents(m);
+        v_min := shifts_min[i] + dprod(slopes, e) + Valuation(c);
+        v_max := shifts_max[i] + dprod(slopes, e) + Valuation(c);
+        if v_max lt 0 then
+          assert Shifts cmpne false;
+          if not IsWeaklyZero(c) then
+            return false, "not integral";
+          else
+            continue epoch;
+          end if;
+        end if;
+      end for;
+    end for;
+    // check the Hensel condition
+    det := Determinant(Matrix([[MonomialCoefficient(xgs[i], xR.j) : j in [1..n]] : i in [1..n]]));
+    vdet_min := &+slopes + &+shifts_min + Valuation(det);
+    vdet_max := &+slopes + &+shifts_max + Valuation(det);
+    sufficient := not IsWeaklyZero(det);
+    v_maxes := [Q|];
+    for i in [1..n] do
+      c := MonomialCoefficient(xgs[i], xR!1);
+      v_min := shifts_min[i] + Valuation(c);
+      v_max := shifts_max[i] + Valuation(c);
+      if v_max lt OO then
+        Append(~v_maxes, v_max);
+      end if;
+      if v_max le 2*vdet_min then
+        if not IsWeaklyZero(c) then
+          return false, "fails Hensel condition";
+        end if;
+      end if;
+      if v_min le 2*vdet_max then
+        sufficient := false;
+      end if;
+    end for;
+    if sufficient then
+      s := Min(v_maxes);
+      t := vdet_max;
+      shifts := shifts_max;
+      min_epoch := epoch;
+      break epoch;
+    else
+      continue epoch;
+    end if;
+  end for;
+  // lift
+  rs := New(Tup_PadExact);
+  rs`parent := CartesianPower(K, n);
+  rs`dependencies := [* f : f in fs *];
+  function start(xfs)
+    xfs := [xf : xf in xfs];
+    xR := Universe(xfs);
+    xK := BaseRing(xR);
+    xxs := [xK| IsWeaklyZero(xx) select 0 else ChangePrecision(xK!xx, Precision(xK)) : xx in rs`internal_data];
+    xdfs := [[Derivative(xfs[i], j) : j in [1..n]] : i in [1..n]];
+    xfxs := Vector([Evaluate(xfs[i], xxs) : i in [1..n]]);
+    J := Matrix([[Evaluate(xdfs[i][j], xxs) : j in [1..n]] : i in [1..n]]);
+    ok, Jinv := IsInvertible(J);
+    if ok then
+      return true, Jinv, xxs, xfxs, xdfs;
+    else
+      return false, _, _, _, _;
+    end if;
+  end function;
+  rs`get_approximation := function (_n, xfs)
+    ok, Jinv, xxs, xfxs, xdfs := start(xfs);
+    assert ok;
+    while true do
+      xxs_diff := xfxs * Transpose(Jinv);
+      xxs_new := Eltseq(Vector(xxs) - xxs_diff);
+      if forall{i : i in [1..n] | WEQ(xxs_new[i], xxs[i])} then
+        pr := Min([shifts[i] + Valuation(xfxs[i]) : i in [1..n]]) - t;
+        locrs := rs;
+        locrs`internal_data := xxs;
+        return <CAP_APR(xxs[i], Ceiling(slopes[i] + pr)) : i in [1..n]>;
+      else
+        xxs := xxs_new;
+        xfxs := Vector([Evaluate(xfs[i], xxs) : i in [1..n]]);
+        J := Matrix([[Evaluate(xdfs[i][j], xxs) : j in [1..n]] : i in [1..n]]);
+        ok, Jinv := IsInvertible(J);
+        assert ok;
+      end if;
+    end while;
+  end function;
+  rs`internal_data := xxs;
+  rs`min_epoch := min_epoch;
+  while not start([*EpochApproximation(d,rs`min_epoch) : d in rs`dependencies*]) do
+    rs`min_epoch +:= 1;
+  end while;
+  Init(rs);
+  return true, AsTuple select rs else ToSequence(rs);
+end intrinsic;
+

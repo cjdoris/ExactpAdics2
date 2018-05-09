@@ -1,0 +1,57 @@
+///# Miscellany
+///## Promotion
+/// A basic scheme for promoting values in different structures to a common strucure.
+
+intrinsic IsPromotable(x, y) -> BoolElt, ., .
+  {True if x and y are promotable to the same parent.}
+  R := Parent(x);
+  S := Parent(y);
+  if R cmpeq S then
+    return true, x, y;
+  end if;
+  ok, T := ExistsCoveringStructure(R, S);
+  if ok then
+    return true, T!x, T!y;
+  end if;
+  ok, x2 := IsCoercible(S, x);
+  if ok then
+    return true, x2, y;
+  end if;
+  ok, y2 := IsCoercible(R, y);
+  if ok then
+    return true, x, y2;
+  end if;
+  return false, _, _;
+end intrinsic;
+
+intrinsic Promote(x, y) -> ., .
+  {Promotes x and y to a common type.}
+  ok, x, y := IsPromotable(x, y);
+  if ok then
+    return x, y;
+  else
+    error Sprintf("not promotable: %o", x);
+  end if;
+end intrinsic;
+
+// tries to do 'op'(x, y)
+// it is assumed there is no intrinsic for this directly
+// we try to promote x and y to a common value
+function do_binop(op, x, y)
+  S := Parent(x);
+  T := Parent(y);
+  if S cmpne T then
+    ok, x2, y2 := IsPromotable(x, y);
+    if ok then
+      return op(x2, y2);
+    end if;
+    ok, y2, x2 := IsPromotable(y, x);
+    if ok then
+      return op(x2, y2);
+    end if;
+  elif Type(S) eq ExtRe then
+    return op(Retrieve(x), Retrieve(y));
+  end if;
+  error Sprintf("operation %m not defined for these", op);
+end function;
+

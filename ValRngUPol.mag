@@ -1,0 +1,640 @@
+///# Valuations
+///## ValRngUPolElt_FldPadExact
+/// Represents the valuation of a univariate polynomial over a p-adic field.
+
+import "Promotion.mag": do_binop;
+import "ValFldPad.mag": VAL_FLDPADEXACTELT_INFINITY, VAL_FLDPADEXACTELT_NEGINFINITY, VAL_FLDPADEXACTELT_ZERO;
+
+Z := Integers();
+
+// the valuation of a RngUPolElt[FldPad], RngUPolElt_FldPadExact or similar
+declare type ValRngUPolElt_FldPadExact: Val_PadExactElt;
+declare attributes ValRngUPolElt_FldPadExact
+  : values          // REQ: AssocDflt: [RngIntElt] -> ValFldPadExactElt (valuation at each degree)
+  ;
+
+VAL_RNGUPOLELT_FLDPADEXACT_INFINITY := New(ValRngUPolElt_FldPadExact);
+VAL_RNGUPOLELT_FLDPADEXACT_INFINITY`values := DefaultAssociativeArray(VAL_FLDPADEXACTELT_INFINITY);
+
+VAL_RNGUPOLELT_FLDPADEXACT_NEGINFINITY := New(ValRngUPolElt_FldPadExact);
+VAL_RNGUPOLELT_FLDPADEXACT_NEGINFINITY`values := DefaultAssociativeArray(VAL_FLDPADEXACTELT_NEGINFINITY);
+
+VAL_RNGUPOLELT_FLDPADEXACT_ZERO := New(ValRngUPolElt_FldPadExact);
+VAL_RNGUPOLELT_FLDPADEXACT_ZERO`values := DefaultAssociativeArray(VAL_FLDPADEXACTELT_ZERO);
+
+///### Creation
+
+intrinsic ValRngUPolElt_FldPadExact_IsCoercible(v) -> BoolElt, .
+  {True if v is coercible to a ValRngUPolElt_FldPadExact.}
+  ok, v2 := ValFldPadExactElt_IsCoercible(v);
+  if ok then
+    r := New(ValRngUPolElt_FldPadExact);
+    r`values := DefaultAssociativeArray(v2);
+    return true, r;
+  end if;
+  return false, "wrong type";
+end intrinsic;
+
+intrinsic ValRngUPolElt_FldPadExact_IsCoercible(v :: ValRngUPolElt_FldPadExact) -> BoolElt, .
+  {"}
+  return true, v;
+end intrinsic;
+
+intrinsic ValRngUPolElt_FldPadExact_IsCoercible(v :: AssocDflt) -> BoolElt, .
+  {"}
+  // check exact correctness first
+  if Type(DefaultValue(v)) eq ValFldPadExactElt and (#v`array eq 0 or Universe(v`array) cmpeq Z) and forall{k : k in Keys(v`array) | Type(v`array[k]) eq ValFldPadExactElt} then
+    r := New(ValRngUPolElt_FldPadExact);
+    r`values := v;
+    return true, r;
+  end if;
+  // check coercibility
+  ok, d := ValFldPadExactElt_IsCoercible(DefaultValue(v));
+  if not ok then
+    return false, Sprintf("default value: %o", d);
+  end if;
+  ok, ks := CanChangeUniverse(SetToSequence(Keys(v`array)), Z);
+  if not ok then
+    return false, "keys: expecting integers";
+  end if;
+  vs := [];
+  for k in ks do
+    ok, w := ValFldPadExactElt_IsCoercible(v`array[k]);
+    if not ok then
+      return false, Sprintf("value %o: %o", k, w);
+    end if;
+    Append(~vs, w);
+  end for;
+  r := New(ValRngUPolElt_FldPadExact);
+  r`values := DefaultAssociativeArray(d, ks, vs);
+  return true, r;
+end intrinsic;
+
+intrinsic IsPromotable(v :: ValRngUPolElt_FldPadExact, w) -> BoolElt, .
+  {True if v and w are promotable to a common type.}
+  ok, w2 := ValRngUPolElt_FldPadExact_IsCoercible(w);
+  if ok then
+    return true, v, w2;
+  end if;
+  return false, _, _;
+end intrinsic;
+
+intrinsic ValRngUPolElt_FldPadExact_IsCoercible(dflt, v) -> BoolElt, .
+  {True if v is coercible to a ValRngUPolElt_FldPadExact with given default.}
+  ok, d := ValFldPadExactElt_IsCoercible(dflt);
+  if not ok then
+    return false, "default not coercible: " cat d;
+  end if;
+  return ValRngUPolElt_FldPadExact_IsCoercible(d, v);
+end intrinsic;
+
+intrinsic ValRngUPolElt_FldPadExact_IsCoercible(dflt :: ValFldPadExactElt, v) -> BoolElt, .
+  {"}
+  reasons := {"wrong type"};
+  // first try coercing v to a AssocDflt with the given default and then to a Val
+  ok, x := IsCoercible_DefaultAssociativeArray(dflt, v);
+  if ok then
+    ok, w := ValRngUPolElt_FldPadExact_IsCoercible(x);
+    if ok then
+      return true, w;
+    else
+      Include(~reasons, w);
+    end if;
+  else
+    Include(~reasons, x);
+  end if;
+  // now try coercing v=[v0,v1,...] to AssocDflt [i]->vi with given default and then to Val
+  if ISA(Type(v), SeqEnum) then
+    ok, x := IsCoercible_DefaultAssociativeArray(dflt, [<i-1, v[i]> : i in [1..#v] | IsDefined(v,i)]);
+    if ok then
+      ok, w := ValRngUPolElt_FldPadExact_IsCoercible(x);
+      if ok then
+        return true, w;
+      else
+        Include(~reasons, w);
+      end if;
+    else
+      Include(~reasons, x);
+    end if;
+  end if;
+  // now try coercing v to a AssocDflt and see if it has the right default
+  ok, w := ValRngUPolElt_FldPadExact_IsCoercible(v);
+  if ok and DefaultValue(Value(w)) eq dflt then
+    return true, w;
+  elif ok then
+    Include(~reasons, "wrong default");
+  end if;
+  // give up
+  return false, Join(SetToSequence(reasons), " or ");
+end intrinsic;
+
+///hide
+intrinsic IsValidAbsolutePrecision(x :: RngUPolElt_FldPadExact, v) -> BoolElt, .
+  {True if v is coercible to an absolute precision for x. Also returns the coerced value.}
+  reasons := {};
+  ok, w := ValRngUPolElt_FldPadExact_IsCoercible(VAL_FLDPADEXACTELT_INFINITY, v);
+  if ok then
+    return true, w;
+  else
+    Include(~reasons, w);
+  end if;
+  ok, w := ValRngUPolElt_FldPadExact_IsCoercible(v);
+  if ok then
+    return true, w;
+  else
+    Include(~reasons, w);
+  end if;
+  return false, Join(SetToSequence(reasons), " or ");
+end intrinsic;
+
+///hide
+intrinsic IsValidAbsolutePrecisionDiff(x :: RngUPolElt_FldPadExact, v) -> BoolElt, .
+  {True if v is coercible to an absolute precision diff for x. Also returns the coerced value.}
+  reasons := {};
+  ok, w := ValRngUPolElt_FldPadExact_IsCoercible(VAL_FLDPADEXACTELT_NEGINFINITY, v);
+  if ok then
+    return true, w;
+  else
+    Include(~reasons, w);
+  end if;
+  ok, w := ValRngUPolElt_FldPadExact_IsCoercible(v);
+  if ok then
+    return true, w;
+  else
+    Include(~reasons, w);
+  end if;
+  return false, Join(SetToSequence(reasons), " or ");
+end intrinsic;
+
+intrinsic ValRngUPolElt_FldPadExact_Make(v) -> ValRngUPolElt_FldPadExact
+  {A ValRngUPolElt_FldPadExact with value v.}
+  ok, v := ValRngUPolElt_FldPadExact_IsCoercible(v);
+  require ok: v;
+  return v;
+end intrinsic;
+
+intrinsic ValRngUPolElt_FldPadExact_Make(x, y) -> ValRngUPolElt_FldPadExact
+  {Same as ValRngUPolElt_FldPadExact_Make(DefaultAssociativeArray(x,y)).}
+  return ValRngUPolElt_FldPadExact_Make(DefaultAssociativeArray(x,y));
+end intrinsic;
+
+intrinsic ValRngUPolElt_FldPadExact_Make(x, y, z) -> ValRngUPolElt_FldPadExact
+  {Same as ValRngUPolElt_FldPadExact_Make(DefaultAssociativeArray(x,y,z)).}
+  return ValRngUPolElt_FldPadExact_Make(DefaultAssociativeArray(x,y,z));
+end intrinsic;
+
+///### Special values
+
+intrinsic ValRngUPolElt_FldPadExact_Infinity() -> ValRngUPolElt_FldPadExact
+  {The valuation Infinity.}
+  return VAL_RNGUPOLELT_FLDPADEXACT_INFINITY;
+end intrinsic;
+
+intrinsic ValRngUPolElt_FldPadExact_NegInfinity() -> ValRngUPolElt_FldPadExact
+  {The valuation -Infinity.}
+  return VAL_RNGUPOLELT_FLDPADEXACT_NEGINFINITY;
+end intrinsic;
+
+intrinsic ValRngUPolElt_FldPadExact_Zero() -> ValRngUPolElt_FldPadExact
+  {The valuation 0.}
+  return VAL_RNGUPOLELT_FLDPADEXACT_ZERO;
+end intrinsic;
+
+///hide
+intrinsic Print(v :: ValRngUPolElt_FldPadExact, lvl :: MonStgElt)
+  {Print.}
+  case lvl:
+  when "Magma":
+    printf "ValRngUPolElt_FldPadExact_Make(%m)", Value(v);
+  else
+    printf "%O", DefaultValue(Value(v)), lvl;
+    x := SpecialAssociativeArray(Value(v));
+    if #x gt 0 then
+      printf " except (%o)", Join([Sprintf("%O->%O", k, lvl, x[k], lvl) : k in Keys(x)], ", ");
+    end if;
+  end case;
+end intrinsic;
+
+///### Other operations
+
+intrinsic Value(v :: ValRngUPolElt_FldPadExact) -> AssocDflt
+  {The underlying associative array of values.}
+  return v`values;
+end intrinsic;
+
+intrinsic Ceiling(v :: ValRngUPolElt_FldPadExact) -> ValRngUPolElt_FldPadExact
+  {The integer valuation larger than v, or just v if infinite.}
+  return ValRngUPolElt_FldPadExact_Make(ApplyPointwise(Ceiling, Value(v)));
+end intrinsic;
+
+///hide
+intrinsic '-'(v :: ValRngUPolElt_FldPadExact) -> ValRngUPolElt_FldPadExact
+  {Negation.}
+  return ValRngUPolElt_FldPadExact_Make(ApplyPointwise('-', Value(v)));
+end intrinsic;
+
+///hide
+intrinsic '&+'(vs :: [ValRngUPolElt_FldPadExact]) -> ValRngUPolElt_FldPadExact
+  {Sum.}
+  return ValRngUPolElt_FldPadExact_Make(ZipApplyPointwise('&+', [Value(v) : v in vs]));
+end intrinsic;
+
+///hide
+intrinsic '+'(v :: ValRngUPolElt_FldPadExact, w :: ValRngUPolElt_FldPadExact) -> ValRngUPolElt_FldPadExact
+  {Add.}
+  return &+[v,w];
+end intrinsic;
+
+///hide
+intrinsic '+'(v :: ValRngUPolElt_FldPadExact, w) -> .
+  {"}
+  return do_binop('+', v, w);
+end intrinsic;
+
+///hide
+intrinsic '+'(v, w :: ValRngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('+', v, w);
+end intrinsic;
+
+///hide
+intrinsic '+'(v :: ValRngUPolElt_FldPadExact, w :: Infty) -> .
+  {"}
+  return do_binop('+', v, w);
+end intrinsic;
+
+///hide
+intrinsic '+'(v :: Infty, w :: ValRngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('+', v, w);
+end intrinsic;
+
+///hide
+intrinsic '-'(v :: ValRngUPolElt_FldPadExact, w :: ValRngUPolElt_FldPadExact) -> ValRngUPolElt_FldPadExact
+  {Subtract.}
+  return ValRngUPolElt_FldPadExact_Make(ApplyPointwise('-', Value(v), Value(w)));
+end intrinsic;
+
+///hide
+intrinsic '-'(v :: ValRngUPolElt_FldPadExact, w) -> .
+  {"}
+  return do_binop('-', v, w);
+end intrinsic;
+
+///hide
+intrinsic '-'(v, w :: ValRngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('-', v, w);
+end intrinsic;
+
+///hide
+intrinsic '-'(v :: ValRngUPolElt_FldPadExact, w :: Infty) -> .
+  {"}
+  return do_binop('-', v, w);
+end intrinsic;
+
+///hide
+intrinsic '-'(v :: Infty, w :: ValRngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('-', v, w);
+end intrinsic;
+
+///hide
+intrinsic '*'(v :: ValRngUPolElt_FldPadExact, w :: RngIntElt) -> ValRngUPolElt_FldPadExact
+  {Multiply.}
+  return ValRngUPolElt_FldPadExact_Make(ApplyPointwise(func<u | u*w>, Value(v)));
+end intrinsic;
+
+///hide
+intrinsic '*'(v :: ValRngUPolElt_FldPadExact, w :: FldRatElt) -> ValRngUPolElt_FldPadExact
+  {"}
+  return ValRngUPolElt_FldPadExact_Make(ApplyPointwise(func<u | u*w>, Value(v)));
+end intrinsic;
+
+///hide
+intrinsic '*'(v :: RngIntElt, w :: ValRngUPolElt_FldPadExact) -> ValRngUPolElt_FldPadExact
+  {"}
+  return ValRngUPolElt_FldPadExact_Make(ApplyPointwise(func<u | v*u>, Value(w)));
+end intrinsic;
+
+///hide
+intrinsic '*'(v :: FldRatElt, w :: ValRngUPolElt_FldPadExact) -> ValRngUPolElt_FldPadExact
+  {"}
+  return ValRngUPolElt_FldPadExact_Make(ApplyPointwise(func<u | v*u>, Value(w)));
+end intrinsic;
+
+///hide
+intrinsic '/'(v :: ValRngUPolElt_FldPadExact, w :: RngIntElt) -> ValRngUPolElt_FldPadExact
+  {Divide.}
+  return ValRngUPolElt_FldPadExact_Make(ApplyPointwise(func<u | u/w>, Value(v)));
+end intrinsic;
+
+///hide
+intrinsic '/'(v :: ValRngUPolElt_FldPadExact, w :: FldRatElt) -> ValRngUPolElt_FldPadExact
+  {"}
+  return ValRngUPolElt_FldPadExact_Make(ApplyPointwise(func<u | u/w>, Value(v)));
+end intrinsic;
+
+///hide
+intrinsic 'join'(v :: ValRngUPolElt_FldPadExact, w :: ValRngUPolElt_FldPadExact) -> ValRngUPolElt_FldPadExact
+  {The smallest u with u ge v and u ge w. That is, pointwise join.}
+  return ValRngUPolElt_FldPadExact_Make(ApplyPointwise('join', Value(v), Value(w)));
+end intrinsic;
+
+///hide
+intrinsic 'join'(v :: ValRngUPolElt_FldPadExact, w) -> .
+  {"}
+  return do_binop('join', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'join'(v, w :: ValRngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('join', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'join'(v :: ValRngUPolElt_FldPadExact, w :: Infty) -> .
+  {"}
+  return do_binop('join', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'join'(v :: Infty, w :: ValRngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('join', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'meet'(v :: ValRngUPolElt_FldPadExact, w :: ValRngUPolElt_FldPadExact) -> ValRngUPolElt_FldPadExact
+  {The largest u with u le v and u le w. That is, pointwise meet.}
+  return ValRngUPolElt_FldPadExact_Make(ApplyPointwise('meet', Value(v), Value(w)));
+end intrinsic;
+
+///hide
+intrinsic 'meet'(v :: ValRngUPolElt_FldPadExact, w) -> .
+  {"}
+  return do_binop('meet', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'meet'(v, w :: ValRngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('meet', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'meet'(v :: ValRngUPolElt_FldPadExact, w :: Infty) -> .
+  {"}
+  return do_binop('meet', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'meet'(v :: Infty, w :: ValRngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('meet', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'diff'(v :: ValRngUPolElt_FldPadExact, w :: ValRngUPolElt_FldPadExact) -> ValRngUPolElt_FldPadExact
+  {v wherever v is larger than w, and -OO elsewhere. That is, pointwise diff.}
+  return ValRngUPolElt_FldPadExact_Make(ApplyPointwise('diff', Value(v), Value(w)));
+end intrinsic;
+
+///hide
+intrinsic 'diff'(v :: ValRngUPolElt_FldPadExact, w) -> .
+  {"}
+  return do_binop('diff', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'diff'(v, w :: ValRngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('diff', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'diff'(v :: ValRngUPolElt_FldPadExact, w :: Infty) -> .
+  {"}
+  return do_binop('diff', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'diff'(v :: Infty, w :: ValRngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('diff', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'eq'(v :: ValRngUPolElt_FldPadExact, w :: ValRngUPolElt_FldPadExact) -> BoolElt
+  {Equality.}
+  return ForAll(Value(v), Value(w), 'eq');
+end intrinsic;
+
+///hide
+intrinsic 'eq'(v :: ValRngUPolElt_FldPadExact, w) -> .
+  {"}
+  return do_binop('eq', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'eq'(v, w :: ValRngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('eq', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'eq'(v :: ValRngUPolElt_FldPadExact, w :: Infty) -> .
+  {"}
+  return do_binop('eq', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'eq'(v :: Infty, w :: ValRngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('eq', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'ne'(v :: ValRngUPolElt_FldPadExact, w :: ValRngUPolElt_FldPadExact) -> BoolElt
+  {Inequality.}
+  return not (v eq w);
+end intrinsic;
+
+///hide
+intrinsic 'ne'(v :: ValRngUPolElt_FldPadExact, w) -> .
+  {"}
+  return do_binop('ne', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'ne'(v, w :: ValRngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('ne', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'ne'(v :: ValRngUPolElt_FldPadExact, w :: Infty) -> .
+  {"}
+  return do_binop('ne', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'ne'(v :: Infty, w :: ValRngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('ne', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'le'(v :: ValRngUPolElt_FldPadExact, w :: ValRngUPolElt_FldPadExact) -> BoolElt
+  {Test if v is less than or equal to w everywhere. That is, pointwise 'le'.}
+  return ForAll(Value(v), Value(w), 'le');
+end intrinsic;
+
+///hide
+intrinsic 'le'(v :: ValRngUPolElt_FldPadExact, w) -> .
+  {"}
+  return do_binop('le', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'le'(v, w :: ValRngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('le', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'le'(v :: ValRngUPolElt_FldPadExact, w :: Infty) -> .
+  {"}
+  return do_binop('le', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'le'(v :: Infty, w :: ValRngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('le', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'lt'(v :: ValRngUPolElt_FldPadExact, w :: ValRngUPolElt_FldPadExact) -> BoolElt
+  {Test if v is less than w everywhere. That is, pointwise 'lt'.}
+  return (v le w) and (v ne w);
+end intrinsic;
+
+///hide
+intrinsic 'lt'(v :: ValRngUPolElt_FldPadExact, w) -> .
+  {"}
+  return do_binop('lt', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'lt'(v, w :: ValRngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('lt', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'lt'(v :: ValRngUPolElt_FldPadExact, w :: Infty) -> .
+  {"}
+  return do_binop('lt', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'lt'(v :: Infty, w :: ValRngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('lt', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'ge'(v :: ValRngUPolElt_FldPadExact, w :: ValRngUPolElt_FldPadExact) -> BoolElt
+  {Test if v is greater than or equal to w everywhere. That is, pointwise 'ge'.}
+  return ForAll(Value(v), Value(w), 'ge');
+end intrinsic;
+
+///hide
+intrinsic 'ge'(v :: ValRngUPolElt_FldPadExact, w) -> .
+  {"}
+  return do_binop('ge', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'ge'(v, w :: ValRngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('ge', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'ge'(v :: ValRngUPolElt_FldPadExact, w :: Infty) -> .
+  {"}
+  return do_binop('ge', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'ge'(v :: Infty, w :: ValRngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('ge', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'gt'(v :: ValRngUPolElt_FldPadExact, w :: ValRngUPolElt_FldPadExact) -> BoolElt
+  {Test if v is greater than w everywhere. That is, pointwise 'gt'.}
+  return (v ge w) and (v ne w);
+end intrinsic;
+
+///hide
+intrinsic 'gt'(v :: ValRngUPolElt_FldPadExact, w) -> .
+  {"}
+  return do_binop('gt', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'gt'(v, w :: ValRngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('gt', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'gt'(v :: ValRngUPolElt_FldPadExact, w :: Infty) -> .
+  {"}
+  return do_binop('gt', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'gt'(v :: Infty, w :: ValRngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('gt', v, w);
+end intrinsic;
+
+intrinsic '&join'(v :: ValRngUPolElt_FldPadExact) -> ValFldPadExactElt
+  {The join of the valuations at each coefficient. Equivalent to "&join Image(Value(v))".}
+  return &join Image(Value(v));
+end intrinsic;
+
+intrinsic '&meet'(v :: ValRngUPolElt_FldPadExact) -> ValFldPadExactElt
+  {The meet of the valuations at each coefficient. Equivalent to "&meet Image(Value(v))".}
+  return &meet Image(Value(v));
+end intrinsic;
+
+intrinsic '@'(i :: RngIntElt, v :: ValRngUPolElt_FldPadExact) -> ValFldPadExactElt
+  {The valuation of coefficient i.}
+  return Value(v)(i);
+end intrinsic;
+
+intrinsic ShiftSlope(v :: ValRngUPolElt_FldPadExact, s) -> ValRngUPolElt_FldPadExact
+  {Adds i*s onto v(i).}
+  s := ValFldPadExactElt_Make(s);
+  a := v`values;
+  require Type(a`dflt`value) eq Infty: "The constant part of argument 1 must be infinite";
+  ks := SetToSequence(Keys(a`array));
+  return ValRngUPolElt_FldPadExact_Make(a`dflt, ks, [a`array[k] + k*s : k in ks]);
+end intrinsic;
+
+intrinsic ExactpAdics_Val(f :: RngUPolElt[FldPad]) -> ValRngUPolElt_FldPadExact
+  {The valuation of f.}
+  return ValRngUPolElt_FldPadExact_Make(VAL_FLDPADEXACTELT_INFINITY, [0..Degree(f)], [ExactpAdics_Val(c) : c in Coefficients(f)]);
+end intrinsic;
+
+intrinsic ExactpAdics_APr(f :: RngUPolElt[FldPad]) -> ValRngUPolElt_FldPadExact
+  {The absolute precision of f.}
+  return ValRngUPolElt_FldPadExact_Make(VAL_FLDPADEXACTELT_INFINITY, [0..Degree(f)], [ExactpAdics_APr(c) : c in Coefficients(f)]);
+end intrinsic;

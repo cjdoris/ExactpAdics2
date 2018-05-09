@@ -1,0 +1,591 @@
+///# Valuations
+/// 
+///toc
+///
+///## Introduction
+///
+/// In this package, we define new types to represent valuations of p-adic numbers and polynomials. These are also used to represent precisions.
+/// 
+/// The valuation of a p-adic number is represented by the type `ValFldPadExactElt`, whose value is either an integer, or positive or negative infinity. Mathematically its values are in $Z := \ZZ \cup \{\pm\infty\}$. Addition of valuations corresponds to multiplications of p-adics, so we define this. On the other hand, multiplication of two valuations has no natural interpretation, so we do not define this. Taking the minimum of two valuations is defined, since this bounds the valuation of the sum of the corresponding p-adics. Hence $Z$ is more like the *tropical ring of integers* than the usual ring of integers $\ZZ$. Multiplying by an ordinary integer (*scalar multiplication*) is defined because this corresponds to exponentiation of p-adic numbers. They are also totally ordered. For convenience, we extend $Z$ to include the rationals $\QQ$ too.
+/// 
+/// The valuation of a polynomial is (by definition in the package) a function taking an exponent vector to the valuation of the corresponding coefficient. That is, for polynomials of rank $n$, it is a function $\NN^n \to Z^n$, i.e. an element of $Z^{\NN^n}$. They are represented by the type `Val_RngUPolElt_FldPad` for univariate polynomials and `Val_RngMPolElt_FldPad` for multivariate polynomials over p-adic fields. Since polynomials by definition have only finitely many non-zero coefficients, the function is constant except for finitely many inputs. We can define a partial ordering on these valuations: $v_1 < v_2$ iff for all $n \in \NN$ then $v_1(n) < v_2(n)$. This partial ordering gives us suprema and infema (defined pointwise), and we can also define addition and scalar multiplication pointwise.
+
+///## Generic intrinsics
+///
+/// In this section we document intrinsics common to all valuations. Where there are multiple `Val` inputs, it suffices for only one to be a `Val` and for them all to be coercible to a common `Val` type.
+
+/// Negation, addition and subtraction.
+/// 
+/// This is as normal for `ValFldPadExactElt`, and defined pointwise otherwise. For convenience, we define $\infty-\infty=0$.
+///~intrinsic '-'(v :: Val) -> Val {"} end intrinsic;
+///~intrinsic '+'(v :: Val, w :: Val) -> Val {"} end intrinsic;
+///~intrinsic '-'(v :: Val, w :: Val) -> Val {"} end intrinsic;
+
+/// Scalar multiplication and division. `n` must be an integer or rational.
+///~intrinsic '*'(v :: Val, n) -> Val {"} end intrinsic;
+///~intrinsic '*'(n, v :: Val) -> Val {"} end intrinsic;
+///~intrinsic '/'(v :: Val, n) -> Val {"} end intrinsic;
+
+/// Ordering predicates.
+/// 
+/// This is as normal for `ValFldPadExactElt` (i.e. a total ordering), and defined pointwise otherwise (i.e. a partial ordering).
+///~intrinsic 'eq'(v :: Val, w :: Val) -> Val {"} end intrinsic;
+///~intrinsic 'ne'(v :: Val, w :: Val) -> Val {"} end intrinsic;
+///~intrinsic 'le'(v :: Val, w :: Val) -> Val {"} end intrinsic;
+///~intrinsic 'lt'(v :: Val, w :: Val) -> Val {"} end intrinsic;
+///~intrinsic 'ge'(v :: Val, w :: Val) -> Val {"} end intrinsic;
+///~intrinsic 'gt'(v :: Val, w :: Val) -> Val {"} end intrinsic;
+
+/// Supremum and infemum.
+/// 
+/// This is just maximum and minimum for `ValFldPadExactElt`, and defined pointwise otherwise.
+///~intrinsic 'join'(v :: Val, w :: Val) -> Val {"} end intrinsic;
+///~intrinsic 'meet'(v :: Val, w :: Val) -> Val {"} end intrinsic;
+
+/// Diff. For `ValFldPadExactElt`, `v diff w` is defined to be `v` if `v gt w` and otherwise is negative infinity. Otherwise, it is defined pointwise.
+/// 
+/// If you view the valuation of a compound structure like a multiset, except where the multiplicities on each element are tropical integers instead of normal integers, then `diff` is like set difference defined via a universal property.
+///~intrinsic 'diff'(v :: Val, w :: Val) -> Val {"} end intrinsic;
+
+/// Retrieves the value of the valuation. For `ValFldPadExactElt` this is an integer, rational or infinite. For compound structures it is the underlying function, e.g. for polynomials it is an `AssocDflt` representing a function which is constant almost everywhere.
+///~intrinsic Value(v :: Val) -> . {"} end intrinsic;
+
+/// True if `v` may be coerced to a valuation for `x`. If so, also returns the coerced valuation.
+///~intrinsic IsValidAbsolutePrecision(x, v) -> Val {"} end intrinsic;
+
+/// True if `v` may be coerced to a valuation for `x`. If so also returns the coerced valuation. Differs from `IsValidAbsolutePrecision` in that, for example, for polynomials, if the constant value is not implied by `v`, then it is taken to be -infinity instead of infinity.
+///~intrinsic IsValidAbsolutePrecisionDiff(x, v) -> Val {"} end intrinsic;
+
+///## ValFldPadExactElt
+/// Represents the valuation of a p-adic number.
+
+import "Utils.mag": WVAL, APR, Z, OO;
+import "Promotion.mag": do_binop;
+
+// the valuation of a FldPadElt or FldPadExactElt or similar
+declare type ValFldPadExactElt: ValPadExact;
+declare attributes ValFldPadExactElt
+  : value            // REQ: FldRatElt, RngIntElt or Infty
+  ;
+
+VAL_FLDPADEXACTELT_INFINITY := New(ValFldPadExactElt);
+VAL_FLDPADEXACTELT_INFINITY`value := OO;
+
+VAL_FLDPADEXACTELT_NEGINFINITY := New(ValFldPadExactElt);
+VAL_FLDPADEXACTELT_NEGINFINITY`value := -OO;
+
+VAL_FLDPADEXACTELT_ZERO := New(ValFldPadExactElt);
+VAL_FLDPADEXACTELT_ZERO`value := 0;
+
+///### Creation
+
+intrinsic ValFldPadExactElt_IsCoercible(v) -> BoolElt, .
+  {True if v is coercible to a ValFldPadExactElt, and the coerced value.}
+  return false, "wrong type";
+end intrinsic;
+
+intrinsic ValFldPadExactElt_IsCoercible(v :: ValFldPadExactElt) -> BoolElt, .
+  {"}
+  return true, v;
+end intrinsic;
+
+intrinsic ValFldPadExactElt_IsCoercible(v :: RngIntElt) -> BoolElt, .
+  {"}
+  r := New(ValFldPadExactElt);
+  r`value := v;
+  return true, r;
+end intrinsic;
+
+intrinsic ValFldPadExactElt_IsCoercible(v :: Infty) -> BoolElt, .
+  {"}
+  r := New(ValFldPadExactElt);
+  r`value := v;
+  return true, r;
+end intrinsic;
+
+intrinsic ValFldPadExactElt_IsCoercible(v :: ExtReElt) -> BoolElt, .
+  {"}
+  return ValFldPadExactElt_IsCoercible(Retrieve(v));
+end intrinsic;
+
+intrinsic ValFldPadExactElt_IsCoercible(v :: FldRatElt) -> BoolElt, .
+  {"}
+  r := New(ValFldPadExactElt);
+  r`value := v;
+  return true, r;
+end intrinsic;
+
+intrinsic IsPromotable(v :: ValFldPadExactElt, w) -> BoolElt, ., .
+  {True if v and w are promotable to a common type.}
+  ok, w2 := ValFldPadExactElt_IsCoercible(w);
+  if ok then
+    return true, v, w2;
+  end if;
+  return false, _, _;
+end intrinsic;
+
+///hide
+intrinsic IsValidAbsolutePrecision(x :: FldPadExactElt, v) -> BoolElt, .
+  {True if v is coercible to an absolute precision for x. Also returns the coerced value.}
+  return ValFldPadExactElt_IsCoercible(v);
+end intrinsic;
+
+///hide
+intrinsic IsValidAbsolutePrecisionDiff(x :: FldPadExactElt, v) -> BoolElt, .
+  {True if v is coercible to an absolute precision diff for x. Also returns the coerced value.}
+  return ValFldPadExactElt_IsCoercible(v);
+end intrinsic;
+
+intrinsic ValFldPadExactElt_Make(v) -> ValFldPadExactElt
+  {A ValFldPadExactElt with value v.}
+  ok, v := ValFldPadExactElt_IsCoercible(v);
+  require ok: v;
+  return v;
+end intrinsic;
+
+///### Special values
+
+intrinsic ValFldPadExactElt_Infinity() -> ValFldPadExactElt
+  {The valuation Infinity.}
+  return VAL_FLDPADEXACTELT_INFINITY;
+end intrinsic;
+
+intrinsic ValFldPadExactElt_NegInfinity() -> ValFldPadExactElt
+  {The valuation -Infinity.}
+  return VAL_FLDPADEXACTELT_NEGINFINITY;
+end intrinsic;
+
+intrinsic ValFldPadExactElt_Zero() -> ValFldPadExactElt
+  {The valuation 0.}
+  return VAL_FLDPADEXACTELT_ZERO;
+end intrinsic;
+
+///hide
+intrinsic Print(v :: ValFldPadExactElt, lvl :: MonStgElt)
+  {Print.}
+  case lvl:
+  when "Magma":
+    printf "ValFldPadExactElt_Make(%m)", Value(v);
+  else
+    printf "%O", Value(v), lvl;
+  end case;
+end intrinsic;
+
+///hide
+intrinsic Value(v :: ValFldPadExactElt) -> .
+  {The value of v.}
+  return v`value;
+end intrinsic;
+
+///### Other operations
+
+intrinsic IsFinite(v :: ValFldPadExactElt) -> BoolElt
+  {True if v is finite, i.e. an integer or rational.}
+  return Type(v`value) ne Infty;
+end intrinsic;
+
+intrinsic IsIntegral(v :: ValFldPadExactElt) -> BoolElt, RngIntElt
+  {True if v has an integer value, and the value if so.}
+  return IsCoercible(Z, v`value);
+end intrinsic;
+
+intrinsic IntegerValue(v :: ValFldPadExactElt) -> RngIntElt
+  {The value of v coerced to an integer.}
+  ok, n := IsIntegral(v);
+  require ok: "must be an integer";
+  return n;
+end intrinsic;
+
+intrinsic Ceiling(v :: ValFldPadExactElt) -> ValFldPadExactElt
+  {The integer valuation larger than v, or just v if infinite.}
+  return ValFldPadExactElt_Make(Ceiling(Value(v)));
+end intrinsic;
+
+///hide
+intrinsic '-'(v :: ValFldPadExactElt) -> ValFldPadExactElt
+  {Negation.}
+  return ValFldPadExactElt_Make(-Value(v));
+end intrinsic;
+
+///hide
+intrinsic '&+'(vs :: [ValFldPadExactElt]) -> ValFldPadExactElt
+  {Summation.}
+  w := &+[v`value : v in vs];
+  return ValFldPadExactElt_Make(Type(w) eq ExtReElt select Retrieve(w) else w);
+end intrinsic;
+
+///hide
+intrinsic '+'(v :: ValFldPadExactElt, w :: ValFldPadExactElt) -> ValFldPadExactElt
+  {Addition.}
+  return &+[v,w];
+end intrinsic;
+
+///hide
+intrinsic '+'(v, w :: ValFldPadExactElt) -> .
+  {"}
+  return do_binop('+', v, w);
+end intrinsic;
+
+///hide
+intrinsic '+'(v:: ValFldPadExactElt, w) -> .
+  {"}
+  return do_binop('+', v, w);
+end intrinsic;
+
+///hide
+intrinsic '+'(v :: Infty, w :: ValFldPadExactElt) -> .
+  {"}
+  return do_binop('+', v, w);
+end intrinsic;
+
+///hide
+intrinsic '+'(v:: ValFldPadExactElt, w :: Infty) -> .
+  {"}
+  return do_binop('+', v, w);
+end intrinsic;
+
+///hide
+intrinsic '-'(v :: ValFldPadExactElt, w :: ValFldPadExactElt) -> ValFldPadExactElt
+  {Subtraction. Note that subtraction is interpreted as a "precision = absolute precision - valuation" calculation, so Infinity-Infinity is 0.}
+  return ValFldPadExactElt_Make(Value(v) eq Value(w) select 0 else Value(v) - Value(w));
+end intrinsic;
+
+///hide
+intrinsic '-'(v, w :: ValFldPadExactElt) -> .
+  {"}
+  return do_binop('-', v, w);
+end intrinsic;
+
+///hide
+intrinsic '-'(v:: ValFldPadExactElt, w) -> .
+  {"}
+  return do_binop('-', v, w);
+end intrinsic;
+
+///hide
+intrinsic '-'(v :: Infty, w :: ValFldPadExactElt) -> .
+  {"}
+  return do_binop('-', v, w);
+end intrinsic;
+
+///hide
+intrinsic '-'(v:: ValFldPadExactElt, w :: Infty) -> .
+  {"}
+  return do_binop('-', v, w);
+end intrinsic;
+
+///hide
+intrinsic '*'(v :: ValFldPadExactElt, w :: RngIntElt) -> ValFldPadExactElt
+  {Multiplication.}
+  return ValFldPadExactElt_Make(Value(v) * w);
+end intrinsic;
+
+///hide
+intrinsic '*'(v :: ValFldPadExactElt, w :: FldRatElt) -> ValFldPadExactElt
+  {"}
+  return ValFldPadExactElt_Make(Value(v) * w);
+end intrinsic;
+
+///hide
+intrinsic '*'(v :: RngIntElt, w :: ValFldPadExactElt) -> ValFldPadExactElt
+  {"}
+  return ValFldPadExactElt_Make(v * Value(w));
+end intrinsic;
+
+///hide
+intrinsic '*'(v :: FldRatElt, w :: ValFldPadExactElt) -> ValFldPadExactElt
+  {"}
+  return ValFldPadExactElt_Make(v * Value(w));
+end intrinsic;
+
+///hide
+intrinsic '/'(v :: ValFldPadExactElt, w :: RngIntElt) -> ValFldPadExactElt
+  {Division.}
+  return ValFldPadExactElt_Make(Value(v) / w);
+end intrinsic;
+
+///hide
+intrinsic '/'(v :: ValFldPadExactElt, w :: FldRatElt) -> ValFldPadExactElt
+  {"}
+  return ValFldPadExactElt_Make(Value(v) / w);
+end intrinsic;
+
+///hide
+intrinsic 'join'(v :: ValFldPadExactElt, w :: ValFldPadExactElt) -> ValFldPadExactElt
+  {The higher of v and w. Interpreted as an upper bound on two absolute precisions.}
+  return v ge w select v else w;
+end intrinsic;
+
+///hide
+intrinsic 'join'(v, w :: ValFldPadExactElt) -> .
+  {"}
+  return do_binop('join', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'join'(v:: ValFldPadExactElt, w) -> .
+  {"}
+  return do_binop('join', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'join'(v :: Infty, w :: ValFldPadExactElt) -> .
+  {"}
+  return do_binop('join', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'join'(v:: ValFldPadExactElt, w :: Infty) -> .
+  {"}
+  return do_binop('join', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'meet'(v :: ValFldPadExactElt, w :: ValFldPadExactElt) -> ValFldPadExactElt
+  {The lower of v and w. Interpreted as a lower bound on two valuations.}
+  return v le w select v else w;
+end intrinsic;
+
+///hide
+intrinsic 'meet'(v, w :: ValFldPadExactElt) -> .
+  {"}
+  return do_binop('meet', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'meet'(v:: ValFldPadExactElt, w) -> .
+  {"}
+  return do_binop('meet', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'meet'(v :: Infty, w :: ValFldPadExactElt) -> .
+  {"}
+  return do_binop('meet', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'meet'(v:: ValFldPadExactElt, w :: Infty) -> .
+  {"}
+  return do_binop('meet', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'diff'(v :: ValFldPadExactElt, w :: ValFldPadExactElt) -> ValFldPadExactElt
+  {v if v is higher than w else -OO. Interpreted as the absolute precision required if v is wanted and w is already got.}
+  return v gt w select v else VAL_FLDPADEXACTELT_NEGINFINITY;
+end intrinsic;
+
+///hide
+intrinsic 'diff'(v, w :: ValFldPadExactElt) -> .
+  {"}
+  return do_binop('diff', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'diff'(v:: ValFldPadExactElt, w) -> .
+  {"}
+  return do_binop('diff', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'diff'(v :: Infty, w :: ValFldPadExactElt) -> .
+  {"}
+  return do_binop('diff', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'diff'(v:: ValFldPadExactElt, w :: Infty) -> .
+  {"}
+  return do_binop('diff', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'eq'(v :: ValFldPadExactElt, w :: ValFldPadExactElt) -> ValFldPadExactElt
+  {Equality.}
+  return Value(v) eq Value(w);
+end intrinsic;
+
+///hide
+intrinsic 'eq'(v, w :: ValFldPadExactElt) -> .
+  {"}
+  return do_binop('eq', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'eq'(v:: ValFldPadExactElt, w) -> .
+  {"}
+  return do_binop('eq', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'eq'(v :: Infty, w :: ValFldPadExactElt) -> .
+  {"}
+  return do_binop('eq', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'eq'(v:: ValFldPadExactElt, w :: Infty) -> .
+  {"}
+  return do_binop('eq', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'ne'(v :: ValFldPadExactElt, w :: ValFldPadExactElt) -> ValFldPadExactElt
+  {Inequality.}
+  return Value(v) ne Value(w);
+end intrinsic;
+
+///hide
+intrinsic 'ne'(v, w :: ValFldPadExactElt) -> .
+  {"}
+  return do_binop('ne', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'ne'(v:: ValFldPadExactElt, w) -> .
+  {"}
+  return do_binop('ne', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'ne'(v :: Infty, w :: ValFldPadExactElt) -> .
+  {"}
+  return do_binop('ne', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'ne'(v:: ValFldPadExactElt, w :: Infty) -> .
+  {"}
+  return do_binop('ne', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'le'(v :: ValFldPadExactElt, w :: ValFldPadExactElt) -> ValFldPadExactElt
+  {Equality.}
+  return Value(v) le Value(w);
+end intrinsic;
+
+///hide
+intrinsic 'le'(v, w :: ValFldPadExactElt) -> .
+  {"}
+  return do_binop('le', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'le'(v:: ValFldPadExactElt, w) -> .
+  {"}
+  return do_binop('le', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'le'(v :: Infty, w :: ValFldPadExactElt) -> .
+  {"}
+  return do_binop('le', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'le'(v:: ValFldPadExactElt, w :: Infty) -> .
+  {"}
+  return do_binop('le', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'lt'(v :: ValFldPadExactElt, w :: ValFldPadExactElt) -> ValFldPadExactElt
+  {Equality.}
+  return Value(v) lt Value(w);
+end intrinsic;
+
+///hide
+intrinsic 'lt'(v, w :: ValFldPadExactElt) -> .
+  {"}
+  return do_binop('lt', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'lt'(v:: ValFldPadExactElt, w) -> .
+  {"}
+  return do_binop('lt', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'lt'(v :: Infty, w :: ValFldPadExactElt) -> .
+  {"}
+  return do_binop('lt', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'lt'(v:: ValFldPadExactElt, w :: Infty) -> .
+  {"}
+  return do_binop('lt', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'ge'(v :: ValFldPadExactElt, w :: ValFldPadExactElt) -> ValFldPadExactElt
+  {Equality.}
+  return Value(v) ge Value(w);
+end intrinsic;
+
+///hide
+intrinsic 'ge'(v, w :: ValFldPadExactElt) -> .
+  {"}
+  return do_binop('ge', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'ge'(v:: ValFldPadExactElt, w) -> .
+  {"}
+  return do_binop('ge', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'ge'(v :: Infty, w :: ValFldPadExactElt) -> .
+  {"}
+  return do_binop('ge', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'ge'(v:: ValFldPadExactElt, w :: Infty) -> .
+  {"}
+  return do_binop('ge', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'gt'(v :: ValFldPadExactElt, w :: ValFldPadExactElt) -> ValFldPadExactElt
+  {Equality.}
+  return Value(v) gt Value(w);
+end intrinsic;
+
+///hide
+intrinsic 'gt'(v, w :: ValFldPadExactElt) -> .
+  {"}
+  return do_binop('gt', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'gt'(v:: ValFldPadExactElt, w) -> .
+  {"}
+  return do_binop('gt', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'gt'(v :: Infty, w :: ValFldPadExactElt) -> .
+  {"}
+  return do_binop('gt', v, w);
+end intrinsic;
+
+///hide
+intrinsic 'gt'(v:: ValFldPadExactElt, w :: Infty) -> .
+  {"}
+  return do_binop('gt', v, w);
+end intrinsic;
+
+intrinsic ExactpAdics_Val(x :: FldPadElt) -> ValFldPadExactElt
+  {The valuation of x.}
+  return ValFldPadExactElt_Make(WVAL(x));
+end intrinsic;
+
+intrinsic ExactpAdics_APr(x :: FldPadElt) -> ValFldPadExactElt
+  {The absolute precision of x.}
+  return ValFldPadExactElt_Make(APR(x));
+end intrinsic;

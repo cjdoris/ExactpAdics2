@@ -1,0 +1,1045 @@
+///# Univariate polynomials
+
+import "Utils.mag": Z, Q, TRIM_PR, CAP_PR, SHIFTARG, SHIFTSLOPE, WVAL, WZERO, OO;
+import "Promotion.mag": do_binop;
+
+declare type RngUPol_FldPadExact[RngUPolElt_FldPadExact]: StrPadExact;
+declare attributes RngUPol_FldPadExact
+  : base_ring       // the base ring
+  , varname         // name of the variable
+  // cache
+  , generator       // Generator(*), *.1, Name(*,1)
+  , zero            // Zero(*)
+  , one             // One(*)
+  ;
+
+declare type RngUPolElt_FldPadExact: PadExactElt;
+declare attributes RngUPolElt_FldPadExact
+  // cache
+  : degree          // Degree(*)
+  , coefficient     // i -> Coefficient(*, i)
+  , coefficients    // Coefficients(*)
+  , is_eisenstein   // IsEisenstein(*)
+  , is_inertial     // IsInertial(*)
+  , negation        // -*
+  , derivative      // i -> Derivative(*, i)
+  , discriminant    // Discriminant(*)
+  , fulldegree_epoch
+  , min_fulldegree_epoch
+  , npfactorization
+  ;
+
+///## Creation of rings
+
+intrinsic PolynomialRing(F :: FldPadExact) -> RngUPol_FldPadExact
+  {The univariate polynomial ring over F.}
+  if not assigned F`polynomial_ring then
+    R := New(RngUPol_FldPadExact);
+    R`base_ring := F;
+    R`dependencies := [* F *];
+    R`get_approximation := func<n, xds | PolynomialRing(xds[1])>;
+    Init(R);
+    F`polynomial_ring := R;
+  end if;
+  return F`polynomial_ring;
+end intrinsic;
+
+///hide
+intrinsic Print(R :: RngUPol_FldPadExact, lvl :: MonStgElt)
+  {Print.}
+  case lvl:
+  when "Magma":
+    printf "PolynomialRing(%m)", BaseRing(R);
+  else
+    printf "Unvariate polynomial ring";
+    if assigned R`varname then
+      printf " in %o", R`varname;
+    end if;
+    printf " over %O", BaseRing(R), lvl;
+  end case;
+end intrinsic;
+
+///hide
+intrinsic Print(f :: RngUPolElt_FldPadExact, lvl :: MonStgElt)
+  {Print.}
+  case lvl:
+  when "Maximal":
+    printf "%o", BestApproximation(f);
+  else
+    printf "%o", CAP_PR(BestApproximation(f), 1);
+  end case;
+end intrinsic;
+
+///hide
+intrinsic InterpolateEpochs(f :: RngUPolElt_FldPadExact, n1 :: RngIntElt, n2 :: RngIntElt, xf2 :: RngUPolElt[FldPad]) -> []
+  {Interpolates between the given epochs.}
+  return [* EpochApproximation(Parent(f), n) ! xf2 : n in [n1+1..n2-1] *];
+end intrinsic;
+
+///hide
+intrinsic Generator(R :: RngUPol_FldPadExact) -> RngUPolElt_FldPadExact
+  {The generator of R.}
+  if not assigned R`generator then
+    x := New(RngUPolElt_FldPadExact);
+    x`parent := R;
+    x`dependencies := [* R *];
+    x`get_approximation := func<n, xR | xR[1].1>;
+    Init(x);
+    R`generator := x;
+  end if;
+  return R`generator;
+end intrinsic;
+
+///hide
+intrinsic Name(R :: RngUPol_FldPadExact, i :: RngIntElt) -> RngUPolElt_FldPadExact
+  {The ith generator of R.}
+  require i eq 1: "i must be 1";
+  return Generator(R);
+end intrinsic;
+
+///hide
+intrinsic '.'(R :: RngUPol_FldPadExact, i :: RngIntElt) -> RngUPolElt_FldPadExact
+  {"}
+  require i eq 1: "i must be 1";
+  return Generator(R);
+end intrinsic;
+
+///hide
+intrinsic AssignNames(~R :: RngUPol_FldPadExact, names :: [MonStgElt])
+  {Assigns names to the generators of R.}
+  require #names le 1: "names must have length at most 1";
+  if #names eq 0 then
+    if assigned R`varname then
+      delete R`varname;
+    end if;
+  else
+    R`varname := names[1];
+  end if;
+  for i in [1..#R`approximations] do
+    AssignNames(~R`approximations[i], R);
+  end for;
+end intrinsic;
+
+///hide
+intrinsic AssignNames(~xR :: RngUPol[FldPad], R :: RngUPol_FldPadExact)
+  {Assigns the names of xR from R.}
+  if assigned R`varname then
+    AssignNames(~xR, [R`varname]);
+  end if;
+end intrinsic;
+
+///hide
+intrinsic SetApproximationHook(R :: RngUPol_FldPadExact, n :: RngIntElt, ~xR :: RngUPol[FldPad])
+  {Called by SetApproximation.}
+  AssignNames(~xR, R);
+end intrinsic;
+
+///hide
+intrinsic ExistsCoveringStructure(R :: RngUPol_FldPadExact, S :: RngUPol_FldPadExact) -> BoolElt, .
+  {True if there is a ring containing both R and S.}
+  if R eq S then
+    return true, R;
+  end if;
+  ok, F := ExistsCoveringStructure(BaseRing(R), BaseRing(S));
+  if ok then
+    return true, case<F | BaseRing(R): R, BaseRing(S): S, default: PolynomialRing(F)>;
+  else
+    return false, _;
+  end if;
+end intrinsic;
+
+///## Ring basics
+
+intrinsic BaseRing(R :: RngUPol_FldPadExact) -> FldPadExact
+  {The base ring of R.}
+  return R`base_ring;
+end intrinsic;
+
+///hide
+intrinsic BaseRing(f :: RngUPolElt_FldPadExact) -> FldPadExact
+  {The base ring of f.}
+  return BaseRing(Parent(f));
+end intrinsic;
+
+///## Creation of polynomials
+
+///### Special values
+
+intrinsic Generator(R :: RngUPol_FldPadExact) -> RngUPolElt_FldPadExact
+  {The generator of R.}
+  if not assigned R`generator then
+    x := New(RngUPolElt_FldPadExact);
+    x`parent := R;
+    x`dependencies := [* R *];
+    x`get_approximation := func<n, xR | xR[1].1>;
+    Init(x);
+    R`generator := x;
+  end if;
+  return R`generator;
+end intrinsic;
+
+intrinsic Zero(R :: RngUPol_FldPadExact) -> RngUPolElt_FldPadExact
+  {The zero of R.}
+  if not assigned R`zero then
+    h := New(RngUPolElt_FldPadExact);
+    h`parent := R;
+    h`dependencies := [* R *];
+    h`get_approximation := func<n, xR | xR[1] ! 0>;
+    Init(h);
+    R`zero := h;
+  end if;
+  return R`zero;
+end intrinsic;
+
+intrinsic One(R :: RngUPol_FldPadExact) -> RngUPolElt_FldPadExact
+  {The one of R.}
+  if not assigned R`one then
+    h := New(RngUPolElt_FldPadExact);
+    h`parent := R;
+    h`dependencies := [* R *];
+    h`get_approximation := func<n, xR | xR[1] ! 1>;
+    Init(h);
+    R`one := h;
+  end if;
+  return R`one;
+end intrinsic;
+
+///### From coefficients
+
+intrinsic Polynomial(cs :: [FldPadExactElt]) -> RngUPolElt_FldPadExact
+  {The polynomial with coefficients cs.}
+  return PolynomialRing(Universe(cs)) ! cs;
+end intrinsic;
+
+intrinsic Polynomial(F :: FldPadExact, cs :: []) -> RngUPolElt_FldPadExact
+  {The polynomial over F with coefficients cs.}
+  ok, cs2 := CanChangeUniverse(cs, F);
+  require ok: "coefficients not coercible to F";
+  return PolynomialRing(F) ! cs;
+end intrinsic;
+
+///### Coercion
+///
+/// We can coerce the following to a polynomial in `R`:
+/// - A polynomial in `R`
+/// - A polynomial whose coefficients are coercible to the base ring of `R`
+/// - A sequence of anything coercible to the base ring of `R`
+/// - Anything coercible to the base ring of `R`
+
+intrinsic IsCoercible(R :: RngUPol_FldPadExact, X) -> BoolElt, .
+  {True if X is coercible to R.}
+  ok, x := IsCoercible(BaseRing(R), X);
+  if ok then
+    return true, R ! x;
+  end if;
+  return false, "wrong type";
+end intrinsic;
+
+///hide
+intrinsic IsCoercible(R :: RngUPol_FldPadExact, X :: RngUPolElt_FldPadExact) -> BoolElt, .
+  {"}
+  if Parent(X) eq R then
+    return true, X;
+  else
+    return IsCoercible(R, Coefficients(X));
+  end if;
+end intrinsic;
+
+///hide
+intrinsic IsCoercible(R :: RngUPol_FldPadExact, X :: FldPadExactElt) -> BoolElt, .
+  {"}
+  ok, x := IsCoercible(BaseRing(R), X);
+  if ok then
+    h := New(RngUPolElt_FldPadExact);
+    h`parent := R;
+    h`dependencies := [* R, x *];
+    h`get_approximation := func<n,xds | xds[1] ! xds[2]>;
+    Init(h);
+    return true, h;
+  end if;
+end intrinsic;
+
+///hide
+intrinsic IsCoercible(R :: RngUPol_FldPadExact, X :: []) -> BoolElt, .
+  {"}
+  ok, cs := CanChangeUniverse(X, BaseRing(R));
+  if not ok then
+    return false, "coefficients not coercible to base ring";
+  end if;
+  f := New(RngUPolElt_FldPadExact);
+  f`parent := R;
+  f`dependencies := [* R *] cat [* c : c in cs *];
+  f`get_approximation := func<n, xds | xds[1] ! [c : c in xds[2..#xds]]>;
+  f`coefficient := cs; // this seems like a good optimization, but one would probably expect that the coefficients depend on f, and this breaks that expectation; e.g. calling IsEisenstein(f) will not increase the precision of f, so it can remain weakly non-Eisenstein
+  Init(f);
+  return true, f;
+end intrinsic;
+
+///hide
+intrinsic IsCoercible(R :: RngUPol_FldPadExact, X :: RngUPolElt[FldPad]) -> BoolElt, .
+  {"}
+  if IsCoercible(BaseRing(R), BaseRing(X)!1) then
+    f := New(RngUPolElt_FldPadExact);
+    f`parent := R;
+    f`dependencies := [* R *];
+    f`get_approximation := func<n, xds | xds[1] ! X>;
+    Init(f);
+    IncreaseAbsolutePrecision(f, ExactpAdics_APr(X));
+    return true, f;
+  else
+    return false, "not castable to an approximation of R";
+  end if;
+end intrinsic;
+
+intrinsic ChangeRing(f :: RngUPolElt_FldPadExact, F :: FldPadExact) -> RngUPolElt_FldPadExact
+  {Changes the base ring of f to F.}
+  if BaseRing(f) eq F then
+    return f;
+  else
+    return PolynomialRing(F) ! f;
+  end if;
+end intrinsic;
+
+///## Polynomial basics
+
+///### Degree
+
+intrinsic Degree(f :: RngUPolElt_FldPadExact) -> RngIntElt
+  {The degree of f.}
+  if not assigned f`degree then
+    ok, n := IsDefinitelyFullDegree(f);
+    require ok: "weak leading coefficient of f is weakly zero";
+    f`degree := WeakDegree(f);
+  end if;
+  return f`degree;
+end intrinsic;
+
+///### Coefficients
+
+intrinsic Coefficient(f :: RngUPolElt_FldPadExact, i :: RngIntElt) -> RngIntElt
+  {The ith coefficient of f.}
+  require i ge 0: "i must not be negative";
+  R := Parent(f);
+  F := BaseRing(R);
+  if i gt WeakDegree(f) then
+    return Zero(BaseRing(f));
+  end if;
+  if not assigned f`coefficient then
+    f`coefficient := [F|];
+  end if;
+  if not IsDefined(f`coefficient, i+1) then
+    c := New(FldPadExactElt);
+    c`parent := F;
+    c`dependencies := [* f *];
+    c`get_approximation := func<n, xf | Coefficient(xf[1], i)>;
+    Init(c);
+    f`coefficient[i+1] := c;
+  end if;
+  return f`coefficient[i+1];
+end intrinsic;
+
+intrinsic Coefficients(f :: RngUPolElt_FldPadExact) -> []
+  {The coefficients of f.}
+  if not assigned f`coefficients then
+    f`coefficients := [BaseRing(f)| Coefficient(f,i) : i in [0..Degree(f)]];
+  end if;
+  return f`coefficients;
+end intrinsic;
+
+intrinsic LeadingCoefficient(f :: RngUPolElt_FldPadExact) -> FldPadExactElt
+  {The leading coefficient of f.}
+  return Coefficient(f, Degree(f));
+end intrinsic;
+
+///### Valuation
+
+///### Arithmetic
+
+intrinsic '-'(f :: RngUPolElt_FldPadExact) -> RngUPolElt_FldPadExact
+  {Negation.}
+  if not assigned f`negation then
+    g := New(RngUPolElt_FldPadExact);
+    g`parent := Parent(f);
+    g`dependencies := [* f *];
+    g`get_approximation := func<n,xf | -xf[1]>;
+    Init(g);
+    g`negation := f;
+    f`negation := g;
+  end if;
+  return f`negation;
+end intrinsic;
+
+intrinsic '+'(f :: RngUPolElt_FldPadExact, g :: RngUPolElt_FldPadExact) -> RngUPolElt_FldPadExact
+  {Add.}
+  ok, R := ExistsCoveringStructure(Parent(f), Parent(g));
+  require ok: "not coercible to a common ring";
+  return &+[R|f,g];
+end intrinsic;
+
+///hide
+intrinsic '+'(x :: RngUPolElt_FldPadExact, y) -> .
+  {"}
+  return do_binop('+', x, y);
+end intrinsic;
+
+///hide
+intrinsic '+'(x, y :: RngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('+', x, y);
+end intrinsic;
+
+intrinsic '-'(f :: RngUPolElt_FldPadExact, g :: RngUPolElt_FldPadExact) -> RngUPolElt_FldPadExact
+  {Subtract.}
+  ok, R := ExistsCoveringStructure(Parent(f), Parent(g));
+  require ok: "not coercible to a common ring"; 
+  h := New(RngUPolElt_FldPadExact);
+  h`parent := R;
+  h`dependencies := [* R!f, R!g *];
+  h`get_approximation := func<n,xds | xds[1]-xds[2]>;
+  Init(h);
+  return h;
+end intrinsic;
+
+///hide
+intrinsic '-'(x :: RngUPolElt_FldPadExact, y) -> .
+  {"}
+  return do_binop('-', x, y);
+end intrinsic;
+
+///hide
+intrinsic '-'(x, y :: RngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('-', x, y);
+end intrinsic;
+
+intrinsic '*'(f :: RngUPolElt_FldPadExact, g :: RngUPolElt_FldPadExact) -> RngUPolElt_FldPadExact
+  {Multiply.}
+  ok, R := ExistsCoveringStructure(Parent(f), Parent(g));
+  require ok: "not coercible to a common ring";
+  return &*[R|f,g];
+end intrinsic;
+
+///hide
+intrinsic '*'(x :: RngUPolElt_FldPadExact, y) -> .
+  {"}
+  return do_binop('*', x, y);
+end intrinsic;
+
+///hide
+intrinsic '*'(x, y :: RngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('*', x, y);
+end intrinsic;
+
+intrinsic '/'(f :: RngUPolElt_FldPadExact, x :: FldPadExactElt) -> RngUPolElt_FldPadExact
+  {Divide by a scalar.}
+  ok, F := ExistsCoveringStructure(BaseRing(f), Parent(x));
+  require ok: "not coercible to a common field";
+  R := PolynomialRing(F);
+  f2 := R ! f;
+  x2 := F ! x;
+  EnsureAllApproximationsNonzero(x2);
+  g := New(RngUPolElt_FldPadExact);
+  g`parent := R;
+  g`dependencies := [* f2, x2 *];
+  g`get_approximation := func<n, xds | xds[1] / xds[2]>;
+  Init(g);
+  return g;
+end intrinsic;
+
+///hide
+intrinsic '/'(f :: RngUPolElt_FldPadExact, x) -> .
+  {"}
+  ok, F := ExistsCoveringStructure(BaseRing(f), Parent(x));
+  require ok: "not coercible to a common ring";
+  return (PolynomialRing(F) ! f) / (F ! x);
+end intrinsic;
+
+///hide
+intrinsic '/'(f :: RngUPolElt, x :: FldPadExactElt) -> .
+  {"}
+  ok, F := ExistsCoveringStructure(BaseRing(f), Parent(x));
+  require ok: "not coercible to a common ring";
+  return (PolynomialRing(F) ! x) / (F ! x);
+end intrinsic;
+
+intrinsic 'div'(f :: RngUPolElt_FldPadExact, g :: RngUPolElt_FldPadExact) -> RngUPolElt_FldPadExact
+  {Exact divide.}
+  ok, R := ExistsCoveringStructure(Parent(f), Parent(g));
+  require ok: "not coercible to a common ring";
+  f2 := R ! f;
+  g2 := R ! g;
+  EnsureAllApproximationsFullDegree(g2);
+  h := New(RngUPolElt_FldPadExact);
+  h`parent := R;
+  h`dependencies := [*f2,g2*];
+  h`get_approximation := func<n,xds | xds[1] div xds[2]>;
+  Init(h);
+  return h;
+end intrinsic;
+
+///hide
+intrinsic 'div'(x :: RngUPolElt_FldPadExact, y) -> .
+  {"}
+  return do_binop('div', x, y);
+end intrinsic;
+
+///hide
+intrinsic 'div'(x, y :: RngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('div', x, y);
+end intrinsic;
+
+intrinsic '^'(f :: RngUPolElt_FldPadExact, m :: RngIntElt) -> RngUPolElt_FldPadExact
+  {Power.}
+  require m ge 0: "m must not be negative";
+  R := Parent(f);
+  if m eq 0 then
+    return One(R);
+  end if;
+  h := New(RngUPolElt_FldPadExact);
+  h`parent := R;
+  h`dependencies := [* f *];
+  h`get_approximation := func<n,xf | xf[1]^m>;
+  Init(h);
+  return h;
+end intrinsic;
+
+intrinsic '&+'(fs :: [RngUPolElt_FldPadExact]) -> RngUPolElt_FldPadExact
+  {Sum.}
+  R := Universe(fs);
+  case #fs:
+  when 0:
+    return Zero(R);
+  when 1:
+    return fs[1];
+  else
+    h := New(RngUPolElt_FldPadExact);
+    h`parent := R;
+    h`dependencies := [* f : f in fs *];
+    h`get_approximation := func<n,xfs|&+[xf : xf in xfs]>;
+    Init(h);
+    return h;
+  end case;
+end intrinsic;
+
+intrinsic '&*'(fs :: [RngUPolElt_FldPadExact]) -> RngUPolElt_FldPadExact
+  {Product.}
+  R := Universe(fs);
+  case #fs:
+  when 0:
+    return One(R);
+  when 1:
+    return fs[1];
+  else
+    h := New(RngUPolElt_FldPadExact);
+    h`parent := R;
+    h`dependencies := [* f : f in fs *];
+    h`get_approximation := func<n,xfs | &*[xf : xf in xfs]>;
+    Init(h);
+    return h;
+  end case;
+end intrinsic;
+
+///### Derivative
+
+intrinsic Derivative(f :: RngUPolElt_FldPadExact) -> RngUPolElt_FldPadExact
+  {The derivative of f.}
+  return Derivative(f, 1);
+end intrinsic;
+
+intrinsic Derivative(f :: RngUPolElt_FldPadExact, m :: RngIntElt) -> RngUPolElt_FldPadExact
+  {The mth derivative of f.}
+  require m ge 0: "m must be non-negative";
+  R := Parent(f);
+  if m eq 0 then
+    return f;
+  elif m gt WeakDegree(f) then
+    return Zero(R);
+  end if;
+  if not assigned f`derivative then
+    f`derivative := [R|];
+  end if;
+  if not IsDefined(f`derivative, m) then
+    h := New(RngUPolElt_FldPadExact);
+    h`parent := R;
+    h`dependencies := [* f *];
+    h`get_approximation := func<n,xf | Derivative(xf[1],m)>;
+    Init(h);
+    f`derivative[m] := h;
+  end if;
+  return f`derivative[m];
+end intrinsic;
+
+///### Evaluate
+
+intrinsic Evaluate(f :: RngUPolElt_FldPadExact, x :: FldPadExactElt) -> FldPadExact
+  {Evaluates `f(x)`.}
+  ok, K := ExistsCoveringStructure(BaseRing(f), Parent(x));
+  require ok: "f and x must be defined over a common field";
+  f := ChangeRing(f, K);
+  x := K ! x;
+  y := New(FldPadExactElt);
+  y`parent := K;
+  y`dependencies := [* f, x *];
+  y`get_approximation := func<n, xds | Evaluate(xds[1], xds[2])>;
+  Init(y);
+  return y;
+end intrinsic;
+
+///hide
+intrinsic Evaluate(f :: RngUPolElt_FldPadExact, x) -> .
+  {"}
+  ok, K := ExistsCoveringStructure(BaseRing(f), Parent(x));
+  require ok: "f and x must be coercible to a common ring";
+  return Evaluate(PolynomialRing(K) ! f, K ! x);
+end intrinsic;
+
+///hide
+intrinsic Evaluate(f :: RngUPolElt, x :: FldPadExactElt) -> .
+  {"}
+  ok, K := ExistsCoveringStructure(BaseRing(f), Parent(x));
+  require ok: "f and x must be coercible to a common ring";
+  return Evaluate(PolynomialRing(K) ! f, K ! x);
+end intrinsic;
+
+intrinsic Evaluate(f :: RngUPolElt_FldPadExact, g :: RngUPolElt_FldPadExact) -> RngUPolElt_FldPadExact
+  {Evaluates `f(g)`.}
+  ok, R := ExistsCoveringStructure(Parent(f), Parent(g));
+  require ok: "f and g must be coercible to a common ring";
+  f := R ! f;
+  g := R ! g;
+  h := New(RngUPolElt_FldPadExact);
+  h`parent := R;
+  h`dependencies := [* f, g *];
+  h`get_approximation := func<n, xds | Evaluate(xds[1], xds[2])>;
+  Init(h);
+  return h;
+end intrinsic;
+
+///### Special forms
+
+intrinsic IsEisenstein(f :: RngUPolElt_FldPadExact) -> BoolElt
+  {True if f is Eisenstein. That is, the leading coefficient has valuation 0, the constant coefficient has valuation 1, and the other coefficients have valuation at least 1. Eisenstein polynomials define totally ramified extensions.}
+  if not assigned f`is_eisenstein then
+    d := Degree(f);
+    f`is_eisenstein := d ge 1
+      and ValuationEq(Coefficient(f,0), 1)
+      and ValuationEq(Coefficient(f,d), 0)
+      and forall{i : i in [1..d-1] | ValuationGe(Coefficient(f,i), 1)};
+  end if;
+  return f`is_eisenstein;
+end intrinsic;
+
+intrinsic IsInertial(f :: RngUPolElt_FldPadExact) -> BoolElt
+  {True if f is inertial. That is, it is integral, the leading coefficient has valuation 0, and it is irreducible over the residue class field. Inertial polynomials define unramified extensions.}
+  if not assigned f`is_inertial then
+    d := Degree(f);
+    f`is_inertial := d ge 1
+      and ValuationEq(Coefficient(f, d), 0)
+      and forall{i : i in [0..d-1] | ValuationGe(Coefficient(f, i), 0)}
+      and (IsIrreducible(Polynomial([FF|c@q : c in Coefficients(f)])) where FF,q:=ResidueClassField(BaseRing(f)));
+  end if;
+  return f`is_inertial;
+end intrinsic;
+
+///## Discriminant and resultant
+
+intrinsic Discriminant(f :: RngUPolElt_FldPadExact) -> FldPadExact
+  {The discriminant of f.}
+  if not assigned f`discriminant then
+    EnsureAllApproximationsFullDegree(f);
+    D := New(FldPadExactElt);
+    D`parent := BaseRing(f);
+    D`dependencies := [* f *];
+    D`get_approximation := func<n, xf | Discriminant(xf[1])>;
+    Init(D);
+    f`discriminant := D;
+  end if;
+  return f`discriminant;
+end intrinsic;
+
+intrinsic Resultant(f :: RngUPolElt_FldPadExact, g :: RngUPolElt_FldPadExact) -> FldPadExact
+  {The resultant of f and g.}
+  ok, R := ExistsCoveringStructure(Parent(f), Parent(g));
+  require ok: "f and g must be coercible to a common ring";
+  f2 := R ! f;
+  g2 := R ! g;
+  EnsureAllApproximationsFullDegree(f2);
+  EnsureAllApproximationsFullDegree(g2);
+  r := New(FldPadExactElt);
+  r`parent := BaseRing(R);
+  r`dependencies := [* f2, g2 *];
+  r`get_approximation := func<n,xds | Resultant(xds[1], xds[2])>;
+  Init(r);
+  return r;
+end intrinsic;
+
+///## Newton polygon
+
+/// The Newton polygon of f.
+/// 
+/// If some of the coefficients of f are weakly zero, it can sometimes be quicker to find just part of the polygon. The Support parameter controls how much of the Newton polygon is required, and is one of:
+/// - A single integer or rational, which must be in the support.
+/// - A sequence or tuple of two integers or rationals, which specify an interval which must be in the support.
+/// - A function accepting a Newton polygon and returning true if its support is valid.
+/// 
+///param Support Specifies a lower bound on the support of the returned polygon.
+intrinsic NewtonPolygon(f :: RngUPolElt_FldPadExact : Support:=false) -> NwtnPgon
+  {The Newton polygon of f.}
+  // parse the Support
+  case Type(Support):
+  when BoolElt:
+    deg := Degree(f);
+    valid := func<np | #vs gt 0 and vs[1][1] le 0 and vs[#vs][1] ge deg where vs:=Vertices(np)>;
+  when RngIntElt, FldRatElt:
+    valid := func<np | #vs ne 0 and vs[1][1] le Support and vs[#vs][1] ge Support where vs:=Vertices(np)>;
+  when SeqEnum, Tup:
+    require #Support eq 2 and forall{x : x in Support | Type(x) in {RngIntElt, FldRatElt}}: "Support invalid";
+    valid := func<np | #vs ne 0 and vs[1][1] le Support[1] and vs[#vs][1] ge Support[2] where vs:=Vertices(np)>;
+  when UserProgram:
+    valid := Support;
+  else
+    require false: "Support invalid";
+  end case;
+  for epoch in [1..99999] do
+    xf := EpochApproximation(f, epoch);
+    // the lower weak polygons
+    wlp := NewtonPolygon([<i, v> : i in [0..Degree(xf)] | v lt OO where v:=Valuation(c) where c:=Coefficient(xf,i)] : Faces:="Lower");
+    // the vertices
+    lvs := ChangeUniverse(Vertices(wlp), car<Z, Z>);
+    // find runs of vertices
+    run := [];
+    for v in lvs do
+      if IsWeaklyZero(Coefficient(xf, v[1])) then
+        // weak vertex, ends the run
+        if #run ne 0 then
+          np := NewtonPolygon(run : Faces:="Lower");
+          if valid(np) then
+            return np;
+          end if;
+          run := [];
+        end if;
+      else
+        // strong vertex, add to the run
+        Append(~run, v);
+      end if;
+    end for;
+    // check the final run
+    if #run ne 0 then
+      np := NewtonPolygon(run : Faces:="Lower");
+      if valid(np) then
+        return np;
+      end if;
+    end if;
+  end for;
+end intrinsic;
+
+///## Hensel lifting
+
+/// True if `x` is Hensel-liftable to a root of `f`. If so, also returns the root.
+/// 
+/// This uses a generalized statement of Hensel's lemma which does not require the inputs to be integral, namely:
+/// 
+/// **Hensel's lemma.** *If $f(x) \in K[x]$ and $x \in K$ such that $x$ is closer to one root of $f$ than any other, then iterating $x \mapsto x - f(x)/f'(x)$ converges to that root.*
+intrinsic IsHenselLiftable(f :: RngUPolElt_FldPadExact, x :: FldPadExactElt : Strategy:="default") -> BoolElt, FldPadExactElt
+  {True if x is sufficiently close to a root of f to be Hensel-liftable. If so, also returns the root.}
+  K := Parent(x);
+  R := PolynomialRing(K);
+  ok, f2 := IsCoercible(R, f);
+  require ok: "f must be coercible to the same field as x";
+  // trivial case, no roots possible
+  if WeakDegree(f2) le 0 then
+    return false, _;
+  end if;
+  // check the hensel condition
+  // we take an approximation of f and x, compute g(X):=f(x+X), and see if its Newton polygon has a vertex at 1
+  // we do this by computing the Newton polygon of the weak valuations of g, and seeing if this has a vertex at 1 and the coefficient is not weakly zero
+  for epoch in [1..99999] do
+    xf := EpochApproximation(f2, epoch);
+    xx := EpochApproximation(x, epoch);
+    xR := Parent(xf);
+    xK := BaseRing(xR);
+    assert Parent(xx) eq xK;
+    xg := Evaluate(xf, xR.1 + xx);
+    np := NewtonPolygon([<i, v> : i in [0..Degree(xg)] | v lt OO where v:=WVAL(Coefficient(xg, i))] : Faces:="Lower");
+    vs := ChangeUniverse(Vertices(np), car<Z,Z>);
+    // these asserts may not hold; it is possible that g has some exactly zero coefficients
+    // TODO: deal with this case
+    assert vs[1][1] eq 0;
+    assert vs[2][1] ge 1;
+    // if there is a vertex at 1...
+    if vs[2][1] eq 1 then
+      // ... and it is a real vertex ...
+      if not WZERO(Coefficient(xg, 1)) then
+        // then we have a root
+        val0 := vs[1][2];
+        val1 := vs[2][2];
+        break epoch;
+      else
+        // else, we don't know
+        continue epoch;
+      end if;
+    end if;
+    // if there is a face from 0 to n, n>1, then it is not hensel liftable
+    assert vs[2][1] gt 1;
+    x0,y0:=Explode(vs[1]);
+    x1,y1:=Explode(vs[2]);
+    s := (y1-y0)/(x1-x0);
+    if not WZERO(Coefficient(xg, 0)) and exists{i : i in [2..x1] | (not WZERO(c)) and WVAL(c) eq y0+s*(i-x0) where c:=Coefficient(xg, i)} then
+      return false, _;
+    end if;
+  end for;
+  // hooray! now find a lift
+  slope := val0 - val1;
+  r := New(FldPadExactElt);
+  r`parent := K;
+  r`dependencies := [* f2 *];
+  r`internal_data := BestApproximation(x);
+  function start(xf)
+    xR := Parent(xf);
+    xK := BaseRing(xR);
+    xr := IsWeaklyZero(xr0) select xK!0 else ChangePrecision(xr0, Precision(xK)) where xr0:=xK ! r`internal_data;
+    xg := SHIFTARG(xf, xr);
+    xh := SHIFTSLOPE(xg, slope : Offset:=-val0);
+    pr := Z ! Min([AbsolutePrecision(c) : c in Coefficients(xh)]);
+    return pr, xr, xK, xh;
+  end function;
+  r`min_epoch := FirstEpochWithApproximation(f2, func<xf | start(xf) ge 1>);
+  r`get_approximation := function (n, xds)
+    pr, xr, xK, xh := start(xds[1]);
+    assert pr ge 1;
+    assert Valuation(Coefficient(xh, 0)) ge 0;
+    assert Valuation(Coefficient(xh, 1)) eq 0;
+    assert forall{i : i in [2..Degree(xh)] | Valuation(Coefficient(xh, i)) gt 0};
+    Q := quo<Integers(xK) | ShiftValuation(xK!1, pr)>;
+    qh := ChangeRing(xh, Q);
+    qr := Q ! 0;
+    dqh := Derivative(qh);
+    while true do
+      qhr := Evaluate(qh, qr);
+      dqhr := Evaluate(dqh, qr);
+      s := Valuation(qhr);
+      assert Valuation(dqhr) eq 0;
+      if s eq pr then
+        xx := ShiftValuation(xK ! qr, slope) + xr;
+        locr := r;
+        locr`internal_data := xx;
+        return xx;
+      else
+        qr2 := qr - qhr div dqhr;
+        assert Valuation(Evaluate(qh, qr2)) ge Min(pr, 2*s);
+        qr := qr2;
+      end if;
+    end while;
+  end function;
+  Init(r);
+  return true, r;
+end intrinsic;
+
+/// True if `g` is Hensel-liftable to a factor of `f`. If so, also returns the factor (with the same leading coefficient as `g`) and its cofactor.
+/// 
+/// **Future.** Optionally choose Slope, fShift and gShift automagically.
+/// 
+///param Slope:=0 A rational number, deslope the polynomials by this amount before applying Hensel's lemma; usually Slope will be a slope of the Newton polygon of `g`.
+///param fShift:=0 A rational number, subtract this from the valuation of `f` after applying `Slope`.
+///param gShift:=0 A rational number, subtract this from the valuation of `g` after applying `Slope`.
+intrinsic IsHenselLiftable(f :: RngUPolElt_FldPadExact, g :: RngUPolElt_FldPadExact : Slope:=0, fShift:=0, gShift:=0) -> BoolElt, RngUPolElt_FldPadExact, RngUPolElt_FldPadExact
+  {True if g is Hensel-liftable to a factor of f, and the factor and cofactor.}
+  // cast to a common ring
+  R := Parent(g);
+  ok, f := IsCoercible(R, f);
+  require ok: "f must be coercible to the same ring as g";
+  // check parameters
+  ok, Slope := IsCoercible(Q, Slope);
+  require ok: "Slope must be a rational number";
+  ok, fShift := IsCoercible(Q, fShift);
+  require ok: "fShift must be a rational number";
+  ok, gShift := IsCoercible(Q, gShift);
+  require ok: "gShift must be a rational number";
+  // check degrees
+  df := WeakDegree(f);
+  dg := Degree(g);
+  if dg lt 0 then
+    // g=0 is a factor of nothing
+    return false, _, _;
+  elif dg eq 0 then
+    // g=const is a factor of anything
+    return true, g, f / Coefficient(g, dg);
+  elif dg eq df then
+    df := Degree(f);
+    return true, f * (Coefficient(g, dg) / Coefficient(f, df)), Coefficient(f, df) / Coefficient(g, dg);
+  elif dg gt df then
+    return false, _, _;
+  end if;
+  // form the multivariate problem
+  h := f div g;
+  dh := df - dg;
+  K := BaseRing(R);
+  S := PolynomialRing(K, df);
+  lcg := Coefficient(g, dg);
+  vlcg := Valuation(lcg);
+  lch := Coefficient(h, dh);
+  T := car<K, PowerSequence(Z)>;
+  eqns := [S| [T| <(i eq dg select lcg else 1)*(j eq dh select lch else 1), [ii eq i select 1 else 0 : ii in [0..dg-1]] cat [jj eq j select 1 else 0 : jj in [0..dh-1]]> where j:=k-i : i in [Max(0,k-dh)..Min(dg,k)]] cat [T| <-Coefficient(f,k), [0 : kk in [0..df-1]]>] : k in [0..df-1]];
+  // the approximate solution
+  soln := [K| Coefficient(g, i) : i in [0..dg-1]] cat [K| Coefficient(h, j) : j in [0..dh-1]];
+  // try to hensel lift to an actual solution
+  ok, coeffs := IsHenselLiftable(eqns, soln : Slopes:=[Slope*i+gShift : i in [0..dg-1]] cat [Slope*i+fShift-gShift : i in [0..dh-1]], Shifts:=[-fShift-i*Slope : i in [0..df-1]], AsTuple);
+  if ok then
+    // success! now reinterpret the solution as the coefficients of the factors
+    fg := New(Tup_PadExact);
+    fg`parent := ExactpAdics_CartesianProduct(<R,R>);
+    fg`dependencies := [* R, coeffs, lcg, lch *];
+    fg`get_approximation := func<n, xds | <xR![xK| i eq dg select xds[3] else xcs[i+1] : i in [0..dg]], xR![xK| j eq dh select xds[4] else xcs[dg+j+1] : j in [0..dh]]> where xK:=BaseRing(xR) where xR:=xds[1] where xcs:=xds[2]>;
+    Init(fg);
+    return true, fg(1), fg(2);
+  else
+    return false, _, _;
+  end if;
+end intrinsic;
+
+///## Approximation
+
+intrinsic WeakValuation(f :: RngUPolElt_FldPadExact) -> ValRngUPolElt_FldPadExact
+  {The weak valuation of f.}
+  return ExactpAdics_Val(BestApproximation(f));
+end intrinsic;
+
+intrinsic AbsolutePrecision(f :: RngUPolElt_FldPadExact) -> ValRngUPolElt_FldPadExact
+  {The weak valuation of f.}
+  return ExactpAdics_APr(BestApproximation(f));
+end intrinsic;
+
+intrinsic WeakDegree(f :: RngUPolElt_FldPadExact) -> RngIntElt
+  {The weak degree of f, an upper bound on the actual degree.}
+  return Degree(BestApproximation(f));
+end intrinsic;
+
+intrinsic WeakApproximation(f :: RngUPolElt_FldPadExact) -> RngUPolElt_FldPadExact
+  {A polynomial weakly equal to f at its current precision.}
+  xf := BestApproximation(f);
+  g := New(RngUPolElt_FldPadExact);
+  g`parent := Parent(f);
+  g`dependencies := [* Parent(f) *];
+  g`get_approximation := func<n, xds | xR![xF| IsWeaklyZero(c) select 0 else ChangePrecision(c,pr) : c in Coefficients(xR ! xf)] where pr:=Precision(xF) where xF:=BaseRing(xR) where xR:=xds[1]>;
+  Init(g);
+  return g;
+end intrinsic;
+
+intrinsic IsDefinitelyFullDegree(f :: RngUPolElt_FldPadExact : Minimize:=false) -> BoolElt, RngIntElt
+  {True if f is definitely full degree.}
+  if Minimize then
+    if not assigned f`min_fulldegree_epoch then
+      ok, n := ExistsEpochWithApproximation(f, func<xf | Degree(xf) lt 0 or not IsWeaklyZero(Coefficient(xf, Degree(xf)))> : Minimize, FromTop);
+      if ok then
+        f`min_fulldegree_epoch := n;
+        f`fulldegree_epoch := n;
+      else
+        return false, _;
+      end if;
+    end if;
+    return true, f`min_fulldegree_epoch;
+  else
+    if not assigned f`fulldegree_epoch then
+      ok, n := ExistsEpochWithApproximation(f, func<xf | Degree(xf) lt 0 or not IsWeaklyZero(Coefficient(xf, Degree(xf)))> : FromTop);
+      if ok then
+        f`fulldegree_epoch := n;
+      else
+        return false, _;
+      end if;
+    end if;
+    return true, f`fulldegree_epoch;
+  end if;
+end intrinsic;
+
+intrinsic EnsureAllApproximationsFullDegree(f :: RngUPolElt_FldPadExact)
+  {Ensures that all approximations of f are full-degree.}
+  ok, n := IsDefinitelyFullDegree(f : Minimize);
+  require ok: "f weakly not full degree";
+  InterpolateUpTo(f, n);
+  assert forall{i : i in [1..n] | Degree(xf) eq d and not IsWeaklyZero(Coefficient(xf, d)) where xf:=f`approximations[n]} where d:=Degree(f);
+end intrinsic;
+
+///## Root-finding and factorization
+
+/// The roots of f over its base ring, as a sequence of `<root,multiplicity>` pairs. Aside from some (exactly) zero roots, which are handled separately, f must be squarefree.
+intrinsic Roots(f :: RngUPolElt_FldPadExact) -> []
+  {The roots of f.}
+  return ExactpAdics_Roots(f);
+end intrinsic;
+
+/// The factorization of f over its base ring, as a sequence of `<factor,multiplicty>` pairs. Aside from some (exactly) zero roots, which are handled separately, f must be squarefree. Also returns the leading coefficient of f.
+/// 
+/// Internally, this calls `ExactpAdics_Factorization`, which has more parameters.
+/// 
+///param Certificates:=false When `true`, also returns a sequence of certificates corresponding to the factors.
+///param Extensions:=false When `true`, implies `Certificates:=true`, and the certificates also include the extension defined by the factor.
+intrinsic Factorization(f :: RngUPolElt_FldPadExact : Certificates:=false, Extensions:=false) -> [], FldPadExactElt, []
+  {The factorization of f.}
+  return ExactpAdics_Factorization(f : Certificates:=Certificates, Extensions:=Extensions);
+end intrinsic;
+
+/// The factorization of `f` according to its Newton polygon, as a sequence of factors. The factors are ordered by slope, from lowest (most negative) to highest.
+///
+///param Residual:=false When `true` then further factorizes according to the factorization of each residual polynomial into powers of irreducibles.
+intrinsic NewtonPolygonFactorization(f :: RngUPolElt_FldPadExact : Residual:=false) -> []
+  {The factorization of `f` along its Newton polygon, that is, one factor per face of the Newton polygon. If `Residual` is true, then further factorizes according to the coprime factorization of each residual polynomial.}
+  if not assigned f`npfactorization then
+    f`npfactorization := AssociativeArray();
+  end if;
+  if not IsDefined(f`npfactorization, Residual) then
+    R := Parent(f);
+    K := BaseRing(f);
+    facs := [R|];
+    deg := Degree(f);
+    np := NewtonPolygon(f : Support:=[1,deg]);
+    vs := ChangeUniverse(Vertices(np), car<Z,Z>);
+    for i in [1..#vs] do
+      if i eq 1 then
+        if vs[1][1] eq 0 then
+          continue;
+        else
+          assert vs[1][1] eq 1;
+          v1 := vs[1][2];
+          v0 := Valuation(Coefficient(BestApproximation(f), 0));
+          if v0 eq OO then
+            fac := R![0,1];
+          else
+            ok, fac := IsHenselLiftable(f, R![0,1] : Slope:=v1-v0, fShift:=v0, gShift:=v0-v1);
+            assert ok;
+          end if;
+          Append(~facs, fac);
+        end if;
+      else
+        x0,v0 := Explode(vs[i-1]);
+        x1,v1 := Explode(vs[i]);
+        w := x1 - x0;
+        slope := (v1-v0) / w;
+        h := Numerator(-slope);
+        e := Denominator(-slope);
+        ok, d := IsDivisibleBy(w, e);
+        assert ok;
+        resfld, resmap := ResidueClassField(K);
+        respol := Polynomial([ShiftValuation(Coefficient(f, x0+i*e), i*h-v0)@resmap : i in [0..d]]);
+        assert Degree(respol) eq d;
+        assert Coefficient(respol, d) ne 0;
+        assert Coefficient(respol, 0) ne 0;
+        if Residual then
+          resfacs := [x[1]^x[2] : x in Factorization(respol)];
+        else
+          resfacs := [respol / Coefficient(respol, d)];
+        end if;
+        for resfac in resfacs do
+          d2 := Degree(resfac);
+          xfac := R![K| ok select ShiftValuation(WeakApproximation(Coefficient(resfac, j)@@resmap), d2*h-j*h) else 0 where ok,j:=IsDivisibleBy(i,e) : i in [0..e*d2]];
+          ok, fac := IsHenselLiftable(f, xfac : Slope:=slope, fShift:=v0-slope*x0, gShift:=d2*h);
+          assert ok;
+          Append(~facs, fac);
+        end for;
+      end if;
+    end for;
+    f`npfactorization[Residual] := facs;
+  end if;
+  return f`npfactorization[Residual];
+end intrinsic;
