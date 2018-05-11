@@ -7,9 +7,9 @@
 * [Basic operations on rings](#basic-operations-on-rings)
 * [Creation of polynomials](#creation-of-polynomials)
 * [Basic operations on polynomials](#basic-operations-on-polynomials)
+* [Hensel lifting](#hensel-lifting)
 * [Internals](#internals)
   * [Approximation](#approximation)
-* [Hensel lifting](#hensel-lifting)
 
 ## Creation of rings
 {:#creation-of-rings}

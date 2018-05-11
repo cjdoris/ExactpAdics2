@@ -19,9 +19,9 @@
 * [Discriminant and resultant](#discriminant-and-resultant)
 * [Newton polygon](#newton-polygon)
 * [Hensel lifting](#hensel-lifting)
+* [Root-finding and factorization](#root-finding-and-factorization)
 * [Internals](#internals)
   * [Approximation](#approximation)
-* [Root-finding and factorization](#root-finding-and-factorization)
 
 ## Creation of rings
 {:#creation-of-rings}

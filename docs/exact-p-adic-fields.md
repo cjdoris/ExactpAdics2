@@ -26,9 +26,6 @@
   * [Printing](#printing)
   * [Standard form](#standard-form)
 * [Residue class field](#residue-class-field)
-* [Internals](#internals)
-  * [Approximations](#approximations)
-  * [ExtFldPadExact](#extfldpadexact)
 * [Ramification polynomials and polygons](#ramification-polynomials-and-polygons)
 * [Hasse-Herbrand transition function](#hasse-herbrand-transition-function)
   * [Creation](#creation)
@@ -38,6 +35,9 @@
   * [Inspection](#inspection)
   * [Application](#application)
   * [Automorphism group](#automorphism-group)
+* [Internals](#internals)
+  * [Approximations](#approximations)
+  * [ExtFldPadExact](#extfldpadexact)
 
 ## Creation of p-adic fields
 {:#creation-of-p-adic-fields}
