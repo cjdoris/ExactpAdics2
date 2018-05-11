@@ -62,14 +62,15 @@ intrinsic InterpolateEpochs(T :: Tup_PadExact, n1 :: RngIntElt, n2 :: RngIntElt,
 end intrinsic;
 
 ///### Creation of tuples
-
 /// We can coerce the following to an exact tuple:
 /// - A tuple or exact tuple whose entries are coercible to the components of the cartesian product.
+
 intrinsic IsCoercible(C :: SetCart_PadExact, X) -> BoolElt, .
-  {True if X is coercible to an element of C.}
+  {True if X is coercible to an element of C. If so, also returns the coerced element.}
   return false, "wrong type";
 end intrinsic;
 
+///hide
 intrinsic IsCoercible(C :: SetCart_PadExact, X :: Tup_PadExact) -> BoolElt, .
   {"}
   if Parent(X) eq C then
@@ -78,6 +79,7 @@ intrinsic IsCoercible(C :: SetCart_PadExact, X :: Tup_PadExact) -> BoolElt, .
   return IsCoercible(C, ToTuple(X));
 end intrinsic;
 
+///hide
 intrinsic IsCoercible(C :: SetCart_PadExact, X :: Tup) -> BoolElt, .
   {"}
   if #X ne NumberOfComponents(C) then

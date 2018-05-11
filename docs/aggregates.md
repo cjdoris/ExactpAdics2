@@ -37,23 +37,17 @@ The `n`th cartesian power of `S`.
 ### Creation of tuples
 {:#creation-of-tuples}
 
-<a id="IsCoercible"></a><a id="IsCoercible--SetCart_PadExact--etc"></a><a id="IsCoercible--SetCart_PadExact--any"></a><a id="IsCoercible--SetCart_PadExact--Tup_PadExact"></a><a id="IsCoercible--SetCart_PadExact--Tup"></a>
+We can coerce the following to an exact tuple:
+- A tuple or exact tuple whose entries are coercible to the components of the cartesian product.
+
+<a id="IsCoercible"></a><a id="IsCoercible--SetCart_PadExact--etc"></a><a id="IsCoercible--SetCart_PadExact--any"></a>
 > **IsCoercible** (C :: *SetCart_PadExact*, X)
-> 
-> **IsCoercible** (C :: *SetCart_PadExact*, X :: *Tup_PadExact*)
-> 
-> **IsCoercible** (C :: *SetCart_PadExact*, X :: *Tup*)
 > 
 > -> *BoolElt*, Any
 > {:.ret}
 {:.intrinsic}
 
-We can coerce the following to an exact tuple:
-- A tuple or exact tuple whose entries are coercible to the components of the cartesian product.
-
-
-
-
+True if `X` is coercible to an element of `C`. If so, also returns the coerced element.
 
 
 ### Basic operations

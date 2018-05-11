@@ -6,6 +6,7 @@
 * [Creation of rings](#creation-of-rings)
 * [Basic operations on rings](#basic-operations-on-rings)
 * [Creation of polynomials](#creation-of-polynomials)
+  * [Coercion](#coercion)
 * [Basic operations on polynomials](#basic-operations-on-polynomials)
 * [Hensel lifting](#hensel-lifting)
 * [Internals](#internals)
@@ -70,6 +71,15 @@ The generators of `R`.
 ## Creation of polynomials
 {:#creation-of-polynomials}
 
+### Coercion
+{:#coercion}
+
+The following are coercible to a multivariate polynomial in `R`:
+- A polynomial in `R`.
+- A multivariate polynomial of correct rank whose coefficients are coercible into the base ring of `R`.
+- A sequence of tuples, whose first element is a coefficient and whose second element is an exponent vector.
+- Anything coercible to the base ring of `R`.
+
 <a id="IsCoercible"></a><a id="IsCoercible--RngMPol_FldPadExact--etc"></a><a id="IsCoercible--RngMPol_FldPadExact--any"></a>
 > **IsCoercible** (R :: *RngMPol_FldPadExact*, X)
 > 
@@ -77,11 +87,7 @@ The generators of `R`.
 > {:.ret}
 {:.intrinsic}
 
-The following are coercible to a multivariate polynomial over `R`:
-- An element of `R`.
-- An element of the base ring of `R`.
-- A multivariate polynomial of correct rank whose coefficients are coercible into the base ring of `R`.
-- A sequence of tuples, whose first element is a coefficient and whose second element is an exponent vector.
+True if `X` is coercible to an element of `R`. If so, also returns the coerced element.
 
 
 ## Basic operations on polynomials

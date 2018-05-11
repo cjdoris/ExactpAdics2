@@ -167,14 +167,15 @@ intrinsic One(R :: RngMPol_FldPadExact) -> RngMPolElt_FldPadExact
 end intrinsic;
 
 ///## Creation of polynomials
-
-/// The following are coercible to a multivariate polynomial over R:
-/// - An element of R.
-/// - An element of the base ring of R.
-/// - A multivariate polynomial of correct rank whose coefficients are coercible into the base ring of R.
+///### Coercion
+/// The following are coercible to a multivariate polynomial in `R`:
+/// - A polynomial in `R`.
+/// - A multivariate polynomial of correct rank whose coefficients are coercible into the base ring of `R`.
 /// - A sequence of tuples, whose first element is a coefficient and whose second element is an exponent vector.
+/// - Anything coercible to the base ring of `R`.
+
 intrinsic IsCoercible(R :: RngMPol_FldPadExact, X) -> BoolElt, .
-  {True if X is coercible to an element of R.}
+  {True if X is coercible to an element of R. If so, also returns the coerced element.}
   ok, x := IsCoercible(BaseRing(R), X);
   if ok then
     f := New(RngMPolElt_FldPadExact);
