@@ -1,4 +1,5 @@
 {
+  Version.mag
   State.mag
   Utils.mag
   Generics.mag
@@ -12,4 +13,5 @@
   DefaultAssociativeArray.mag
   Factorization_new.mag
   Ramification.mag
+  HomFldPadExact.mag
 }

@@ -1,0 +1,25 @@
+---
+---
+
+@import "{{site.theme}}";
+
+blockquote.intrinsic {
+  border: 2px solid #bbb !important;
+  border-radius: 3px !important;
+  border-top-width: 4px !important;
+  margin-top: 30px !important;
+  margin-bottom: 10px !important;
+  background-color: #fafafa !important;
+  font-family: "SFMono-Regular","Consolas","Liberation Mono","Menlo","Courier",monospace !important;
+  overflow-x: auto !important;
+  p {
+    margin-bottom: 4px !important;
+    white-space: nowrap !important;
+  }
+  p.ret {
+    margin-left: 20px !important;
+  }
+  // code {
+  //   background: transparent !important;
+  // }
+}

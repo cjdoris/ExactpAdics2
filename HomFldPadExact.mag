@@ -1,0 +1,335 @@
+///# Exact p-adic fields
+///## Homomorphisms
+
+import "Utils.mag": TRIM_PR, Z, ELTSEQ;
+
+declare type HomFldPadExact;
+declare attributes HomFldPadExact
+  : xdomain                // the domain E1/F as an extension of the base field F
+  , xcodomain              // the codomain E2/F as an extension of the base field F
+  , generator_images       // list of images (in E2) of generators of each E in Tower0(xdomain)
+  , inverse                // Inverse(*) (if invertible)
+  ;
+
+declare attributes FldPadExact
+  : trivial_isomorphism
+  ;
+
+declare attributes ExtFldPadExact
+  : trivial_homomorphism
+  , automorphisms
+  , automorphism_group
+  , automorphism_group_map
+  ;
+
+///### Creation
+
+intrinsic TrivialHomomorphism(E :: FldPadExact, C :: FldPadExact) -> HomFldPadExact
+  {The trivial embedding of E into C, where C is an extension of E.}
+  return TrivialHomomorphism(C/E);
+end intrinsic;
+
+///hide
+intrinsic TrivialHomomorphism(X :: ExtFldPadExact) -> HomFldPadExact
+  {The trivial embedding of the base field into the top field.}
+  if not assigned X`trivial_homomorphism then
+    X`trivial_homomorphism := Homomorphism(BaseField(X)/BaseField(X), [TopField(X)|]);
+  end if;
+  return X`trivial_homomorphism;
+end intrinsic;
+
+intrinsic TrivialIsomorphism(F :: FldPadExact) -> HomFldPadExact
+  {The trivial isomorphism of F.}
+  if not assigned F`trivial_isomorphism then
+    h := TrivialHomomorphism(F, F);
+    h`inverse := h;
+    F`trivial_isomorphism := h;
+  end if;
+  return F`trivial_isomorphism;
+end intrinsic;
+
+intrinsic Homomorphism(E :: FldPadExact, g :: FldPadExactElt) -> HomFldPadExact
+  {The homomorphism sending the generator of E to g.}
+  return Homomorphism(E, [g], BaseField(E));
+end intrinsic;
+
+intrinsic Homomorphism(E :: FldPadExact, gs :: [FldPadExactElt], F :: FldPadExact) -> HomFldPadExact
+  {The homomorphism of E fixing F sending the generators of `E/F` to gs.}
+  return Homomorphism(E/F, gs);
+end intrinsic;
+
+///hide
+intrinsic Homomorphism(X :: ExtFldPadExact, gs :: [FldPadExactElt]) -> HomFldPadExact
+  {The homomorphism from TopField(X) fixing BaseField(X), sending the generators to gs.}
+  C := Universe(gs);
+  ok, xcod := IsExtensionOf(C, BaseField(X));
+  require ok: "generators are not in an extension of the base field";
+  require #gs eq #Tower0(X): "wrong number of generators";
+  h := New(HomFldPadExact);
+  h`xdomain := X;
+  h`xcodomain := xcod;
+  h`generator_images := gs;
+  return h;
+end intrinsic;
+
+intrinsic Homomorphism(E :: FldPadExact, h0 :: HomFldPadExact, gs :: [FldPadExactElt]) -> HomFldPadExact
+  {The homomorphism extending h0, sending the generators of E over the domain of h0 to gs.}
+  cod := Universe(gs);
+  require IsExtensionOf(E, Domain(h0)): "E must be an extension of the domain of h0";
+  return Homomorphism(E, ChangeUniverse(GeneratorImages(h0), cod) cat gs, BaseField(h0));
+end intrinsic;
+
+///param Limit Limits the number of homomorphisms returned.
+intrinsic Homomorphisms(E :: FldPadExact, C :: FldPadExact, F :: FldPadExact : Limit:=Infinity()) -> []
+  {The homomorphisms of E to C fixing F.}
+  require IsExtensionOf(E, F): "E must be an extension of F";
+  require IsExtensionOf(C, F): "C must be an extension of F";
+  require Limit ge 0: "Limit must be at least 0";
+  if Limit eq 0 then
+    return [];
+  end if;
+  // trivial case
+  if E eq F then
+    return [TrivialHomomorphism(E, C)];
+  end if;
+  // general case, first get the homomorphisms of the base field
+  E0 := BaseField(E);
+  h0s := Homomorphisms(E0, C, F);
+  hs := [];
+  for h0 in h0s do
+    // map the defining polynomial under the homomorphism
+    f := PolynomialRing(C) ! [C| c @ h0 : c in Coefficients(DefiningPolynomial(E))];
+    // see if it has any roots
+    for r in Roots(f) do
+      Append(~hs, Homomorphism(E, h0, [r[1]]));
+      if #hs eq Limit then
+        return hs;
+      end if;
+    end for;
+  end for;
+  return hs;
+end intrinsic;
+
+///param Limit Limits the number of isomorphisms returned.
+intrinsic Isomorphisms(E :: FldPadExact, C :: FldPadExact, F :: FldPadExact : Limit:=Infinity()) -> []
+  {The isomorphsisms of E to C fixing F.}
+  require IsExtensionOf(E, F): "E must be an extension of F";
+  require IsExtensionOf(C, F): "C must be an extension of F";
+  require Limit ge 0: "Limit must be at least 0";
+  if Limit eq 0 then
+    return [];
+  end if;
+  // trivial case: different invariants
+  if Degree(E, F) ne Degree(C, F)
+  or RamificationDegree(E, F) ne RamificationDegree(C, F)
+  or Vertices(RamificationPolygon(E, F)) ne Vertices(RamificationPolygon(C, F))
+  then
+    return [];
+  end if;
+  // get homomorphisms both ways
+  CtoEs := Homomorphisms(C, E, F);
+  EtoCs := E eq C select CtoEs[1..Min(Limit, #CtoEs)] else Homomorphisms(E, C, F : Limit:=Limit);
+  assert (#CtoEs eq 0) eq (#EtoCs eq 0);
+  assert #EtoCs eq Min(Limit, #CtoEs);
+  // now pair them up
+  ijs := [Z|];
+  gen := ResidueGenerator(E) + UniformizingElement(E);
+  for i in [1..#EtoCs] do
+    // map the generator forward and back
+    gens := [E| gen1 @ h : h in CtoEs]
+      where gen1 := gen @ EtoCs[i];
+    // find which is the actual generator
+    for epoch in [1..99999] do
+      xgen := EpochApproximation(gen, epoch);
+      xgens := EpochApproximation(gens, epoch);
+      js := [j : j in [1..#CtoEs] | IsWeaklyEqual(xgen, xgens[j])];
+      assert #js ne 0;
+      if #js eq 1 then
+        ijs[i] := js[1];
+        break epoch;
+      end if;
+    end for;
+  end for;
+  // check we have a permutation
+  assert #{j : j in ijs} eq #EtoCs;
+  // do the pairing
+  for i in [1..#EtoCs] do
+    j := ijs[i];
+    EtoCs[i]`inverse := CtoEs[j];
+    CtoEs[j]`inverse := EtoCs[i];
+  end for;
+  return EtoCs;
+end intrinsic;
+
+intrinsic HasIsomorphism(E :: FldPadExact, C :: FldPadExact, F :: FldPadExact) -> BoolElt, HomFldPadExact
+  {True if there is an isomorphism of E to C fixing F. If so, also returns an isomorphism.}
+  hs := Isomorphisms(E, C, F : Limit:=1);
+  if #hs eq 0 then
+    return false, _;
+  else
+    return true, hs[1];
+  end if;
+end intrinsic;
+
+intrinsic Automorphisms(E :: FldPadExact, F :: FldPadExact) -> []
+  {The automorphisms of E fixing F.}
+  return Automorphisms(E / F);
+end intrinsic;
+
+///hide
+intrinsic Automorphisms(X :: ExtFldPadExact) -> []
+  {The automorphsisms of X.}
+  if not assigned X`automorphisms then
+    X`automorphisms := Isomorphisms(TopField(X), TopField(X), BaseField(X));
+  end if;
+  return X`automorphisms;
+end intrinsic;
+
+///hide
+intrinsic Print(h :: HomFldPadExact, lvl :: MonStgElt)
+  {Print.}
+  printf "%o fixing %o from %o to %o", HasInverse(h) select Domain(h) eq Codomain(h) select "Automorphism" else "Isomorphism" else "Homomorphism", BaseField(h), Description(h`xdomain : BaseName:="the base field"), ok select Description(X : BaseName:="itself") else Description(h`xcodomain : BaseName:="the base field") where ok,X := IsExtensionOf(Codomain(h), Domain(h));
+end intrinsic;
+
+///### Inspection
+
+intrinsic Domain(h :: HomFldPadExact) -> FldPadExact
+  {The domain of h.}
+  return TopField(h`xdomain);
+end intrinsic;
+
+intrinsic Codomain(h :: HomFldPadExact) -> FldPadExact
+  {The codomain of h.}
+  return TopField(h`xcodomain);
+end intrinsic;
+
+intrinsic BaseField(h :: HomFldPadExact) -> FldPadExact
+  {The field fixed by h.}
+  return BaseField(h`xdomain);
+end intrinsic;
+
+intrinsic HasInverse(h :: HomFldPadExact) -> BoolElt, HomFldPadExact
+  {True if h has an inverse defined. If so, also returns the inverse.}
+  if assigned h`inverse then
+    return true, h`inverse;
+  else
+    return false, _;
+  end if;
+end intrinsic;
+
+intrinsic Inverse(h :: HomFldPadExact) -> HomFldPadExact
+  {The inverse of h.}
+  require assigned h`inverse: "not invertible";
+  return h`inverse;
+end intrinsic;
+
+intrinsic GeneratorImages(h :: HomFldPadExact) -> []
+  {The sequence of images of the generators of the intermediate fields from the base field up to the domain.}
+  return h`generator_images;
+end intrinsic;
+
+///### Application
+
+intrinsic '@'(x, h :: HomFldPadExact) -> FldPadExactElt
+  {The image of x under the homomorphism.}
+  ok, x := IsCoercible(Domain(h), x);
+  require ok: "x must be coercible to the domain";
+  Es := Tower0(h`xdomain);
+  gs := GeneratorImages(h);
+  assert #Es eq #gs;
+  assert Universe(gs) eq Codomain(h);
+  e := RamificationDegree(h`xcodomain);
+  FUDGE := e eq 1 select 0 else 2*e;
+  k := #gs;
+  y := New(FldPadExactElt);
+  y`parent := Codomain(h);
+  y`dependencies := [* x, Codomain(h) *] cat [* g : g in GeneratorImages(h) *];
+  y`get_approximation := function (n, xds)
+    xx := xds[1];
+    xcod := xds[2];
+    xgs := [xg : xg in xds[3..k+2]];
+    cs := [<xx, [xcod|]>];
+    xE := Parent(xx);
+    if n eq -1 then
+      print "xx =", xx;
+      print "xcod =", xcod;
+      print "xgs =", xgs;
+      print "cs =", cs;
+      print "xE =", xE;
+    end if;
+    for xg in Reverse(xgs) do
+      cs := &cat[[<c0s[i+1], Append(c[2], xg^i)> : i in [0..Degree(xE)-1]] where c0s:=ELTSEQ(c[1] : Trim:=false) : c in cs];
+      xE := BaseField(xE);
+      if n eq -1 then
+        print "cs =", cs;
+        print "xE =", xE;
+      end if;
+    end for;
+    xy := &+[xcod| (xcod! c[1]) * &*c[2] : c in cs];
+    if n eq -1 then
+      print "xy =", xy;
+    end if;
+    xy := TRIM_PR(xy, FUDGE);
+    if n eq -1 then
+      print "trimmed xy =", xy;
+    end if;
+    return xy;
+  end function;
+  Init(y);
+  return y;
+end intrinsic;
+
+intrinsic '@@'(x, h :: HomFldPadExact) -> FldPadExactElt
+  {The image of x under the inverse homomorphism.}
+  return x @ Inverse(h);
+end intrinsic;
+
+intrinsic '*'(h1 :: HomFldPadExact, h2 :: HomFldPadExact) -> HomFldPadExact
+  {Composition, such that `x @ (h1 * h2) = x @ h1 @ h2`.}
+  error "not implemented: composition of homomorphisms";
+end intrinsic;
+
+///### Automorphism group
+
+intrinsic AutomorphismGroup(E :: FldPadExact, F :: FldPadExact) -> GrpPerm, Map
+  {The automorphism group of `E/F` as a permutation group, and the map from the group to the set of automorphisms.}
+  return AutomorphismGroup(E/F);
+end intrinsic;
+
+intrinsic AutomorphismGroup(X :: ExtFldPadExact) -> GrpPerm, .
+  {The automorphism group of X as a permutation group, and the map from the group to the set of automorphisms.}
+  if not assigned X`automorphism_group then
+    hs := Automorphisms(X);
+    gen := UniformizingElement(TopField(X)) + ResidueGenerator(TopField(X));
+    gens := [gen @ h : h in hs];
+    d := #hs;
+    assert d ge 1;
+    assert IsDivisibleBy(Degree(X), d);
+    Sd := SymmetricGroup(d);
+    perms := [];
+    for h in hs do
+      hgens := [gen @ h : gen in gens];
+      for epoch in [1..99999] do
+        xgens := EpochApproximation(gens, epoch);
+        xhgens := EpochApproximation(hgens, epoch);
+        hits := [[i : i in [1..d] | IsWeaklyEqual(xgen, xhgens[i])] : xgen in xgens];
+        assert forall{hit : hit in hits | #hit ne 0};
+        if forall{hit : hit in hits | #hit eq 1} then
+          perm := [hit[1] : hit in hits];
+          assert #perm eq d;
+          assert #SequenceToSet(perm) eq d;
+          Append(~perms, Sd ! perm);
+          break epoch;
+        end if;
+      end for;
+    end for;
+    G := sub<Sd | perms>;
+    lookup := AssociativeArray(G);
+    for i in [1..d] do
+      lookup[perms[i]] := hs[i];
+    end for;
+    X`automorphism_group := G;
+    X`automorphism_group_map := func<g | lookup[G!g]>;
+  end if;
+  return X`automorphism_group, X`automorphism_group_map;
+end intrinsic;

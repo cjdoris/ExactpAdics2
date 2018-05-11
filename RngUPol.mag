@@ -1,4 +1,5 @@
 ///# Univariate polynomials
+///toc
 
 import "Utils.mag": Z, Q, TRIM_PR, CAP_PR, SHIFTARG, SHIFTSLOPE, WVAL, WZERO, OO;
 import "Promotion.mag": do_binop;
@@ -289,6 +290,12 @@ intrinsic IsCoercible(R :: RngUPol_FldPadExact, X :: RngUPolElt[FldPad]) -> Bool
   else
     return false, "not castable to an approximation of R";
   end if;
+end intrinsic;
+
+///hide
+intrinsic IsCoercible(R :: RngUPol_FldPadExact, X :: RngUPolElt) -> BoolElt, .
+  {"}
+  return IsCoercible(R, Coefficients(X));
 end intrinsic;
 
 intrinsic ChangeRing(f :: RngUPolElt_FldPadExact, F :: FldPadExact) -> RngUPolElt_FldPadExact

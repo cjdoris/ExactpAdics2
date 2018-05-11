@@ -1,3 +1,5 @@
+///hide-all
+
 Z := IntegerRing();
 Q := RationalField();
 OO := Infinity();
@@ -80,11 +82,15 @@ intrinsic _ExactpAdics_CapPrecision(f :: RngUPolElt, n :: RngIntElt) -> RngUPolE
   return Parent(f) ! [_ExactpAdics_CapPrecision(c, n) : c in Coefficients(f)];
 end intrinsic;
 
-intrinsic _ExactpAdics_Eltseq(x :: FldPadElt) -> []
+intrinsic _ExactpAdics_Eltseq(x :: FldPadElt : Trim:=true) -> []
   {The coefficients of x over its base field.}
+  if AbsolutePrecision(x) eq OO then
+    assert IsWeaklyZero(x);
+    return [BaseField(Parent(x))| 0 : i in [1..Degree(Parent(x))]];
+  end if;
   cs := Eltseq(x);
   e := RamificationDegree(Parent(x));
-  if e ne 1 then
+  if Trim and e ne 1 then
     cs := [BaseRing(Parent(x))| TRIM_PR(c, 2) : c in cs];
   end if;
   return cs;
@@ -195,3 +201,5 @@ intrinsic _ExactpAdics_Tower(E :: FldPad, F :: FldPad) -> []
     return _ExactpAdics_Tower(BaseField(E), F) cat [E];
   end if;
 end intrinsic;
+
+///hide-none

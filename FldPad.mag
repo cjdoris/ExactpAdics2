@@ -1,4 +1,5 @@
 ///# Exact p-adic fields
+///toc
 
 import "Utils.mag": Z, Q, OO, TRIM_PR, CAP_PR, CAP_APR, ISEXTOF, ELTSEQ, isDefinitelyUnique1;
 import "Promotion.mag": do_binop;
@@ -229,7 +230,7 @@ intrinsic UnramifiedExtension(f :: RngUPolElt_FldPadExact) -> FldPadExact
     xf := BestApproximation(f);
     pr := get_pr(xf);
     if pr lt k then
-      printf "WARNING: need to increase precision of defining polynomial (%o -> %o) for unknown reasons\n", pr, k;
+      ExactpAdics_Warn("get_approx", Sprintf("need to increase precision of defining polynomial (%o -> %o) for unknown reasons", pr, k));
       while pr lt k do
         xf := EpochApproximation(f, #f`approximations+1);
         pr := get_pr(xf);
@@ -282,7 +283,7 @@ intrinsic TotallyRamifiedExtension(f :: RngUPolElt_FldPadExact) -> FldPadExact
     xf := BestApproximation(f);
     pr := get_pr(xf);
     if pr lt k2 then
-      printf "WARNING: need to increase precision of defining polynomial (%o -> %o) for unknown reasons\n", pr, k2;
+      ExactpAdics_Warn("get_approx", Sprintf("need to increase precision of defining polynomial (%o -> %o) for unknown reasons", pr, k2));
       while pr lt k2 do
         xf := EpochApproximation(f, #f`approximations+1);
         pr := get_pr(xf);
@@ -604,6 +605,29 @@ intrinsic IsCoercible(F :: FldPadExact, X :: FldPadElt) -> BoolElt, .
   else
     return false, "not an approximation of an element of F";
   end if;
+end intrinsic;
+
+///hide
+intrinsic IsCoercible(F :: FldPadExact, X :: []) -> BoolElt, .
+  {"}
+  if IsPrimeField(F) then
+    return false, "not an extension";
+  end if;
+  ok, cs := CanChangeUniverse(X, BaseField(F));
+  if not ok then
+    return false, "not coercible to base field";
+  end if;
+  if #cs ne Degree(F) then
+    return false, "wrong length";
+  end if;
+  e := RamificationDegree(F);
+  FUDGE := e eq 1 select 0 else 2;
+  x := New(FldPadExactElt);
+  x`parent := F;
+  x`dependencies := [* F *] cat [* c : c in cs *];
+  x`get_approximation := func<n, xds | TRIM_PR(xds[1] ! [xds[i] : i in [2..#xds]], FUDGE)>;
+  Init(x);
+  return true, x;
 end intrinsic;
 
 ///### Random
@@ -1073,54 +1097,12 @@ intrinsic IsExtensionOf(E :: FldPadExact, F :: FldPadExact) -> BoolElt, ExtFldPa
     X := New(ExtFldPadExact);
     X`top_field := E;
     X`base_field := F;
-    X`tower := X0`tower cat [E];
+    X`tower := Tower(X0) cat [E];
     E`is_extension_of[F`id] := X;
     return true, X;
   else
     return false, _;
   end if;
-end intrinsic;
-
-///hide
-intrinsic Print(X :: ExtFldPadExact, lvl :: MonStgElt)
-  {Prints X.}
-  printf "%o", Description(X);
-end intrinsic;
-
-///hide
-intrinsic Description(X :: ExtFldPadExact : BaseName:="") -> MonStgElt
-  {A description of the extension.}
-  if not assigned X`description then
-    parts := [Strings()| ];
-    for F in X`tower[#X`tower..2 by -1] do
-      case F`xtype:
-      when INERT:
-        Append(~parts, Sprintf("Unramified extension of degree %o", Degree(F)));
-      when EISEN:
-        Append(~parts, Sprintf("Totally ramified extension of degree %o", Degree(F)));
-      else
-        assert false;
-      end case;
-    end for;
-    X`description := Join(parts, " over ");
-  end if;
-  if #BaseName ne 0 then
-    if #X`description ne 0 then
-      return &cat[X`description, " over ", BaseName];
-    else
-      return BaseName;
-    end if;
-  else
-    return X`description;
-  end if;
-end intrinsic;
-
-///hide
-intrinsic '/'(E :: FldPadExact, F :: FldPadExact) -> ExtFldPadExact
-  {The extension `E/F`.}
-  ok, X := IsExtensionOf(E, F);
-  require ok: "not an extension";
-  return X;
 end intrinsic;
 
 ///hide
@@ -1145,7 +1127,7 @@ end intrinsic;
 ///hide
 intrinsic Degree(X :: ExtFldPadExact) -> RngIntElt
   {The degree of X.}
-  return &*[Z| Degree(F) : F in X`tower[2..#X`tower]];
+  return &*[Z| Degree(F) : F in Tower0(X)];
 end intrinsic;
 
 intrinsic InertiaDegree(E :: FldPadExact, F :: FldPadExact) -> RngIntElt
@@ -1156,7 +1138,7 @@ end intrinsic;
 ///hide
 intrinsic InertiaDegree(X :: ExtFldPadExact) -> RngIntElt
   {The inertia degree of X.}
-  return &*[Z| InertiaDegree(F) : F in X`tower[2..#X`tower]];
+  return &*[Z| InertiaDegree(F) : F in Tower0(X)];
 end intrinsic;
 
 intrinsic RamificationDegree(E :: FldPadExact, F :: FldPadExact) -> RngIntElt
@@ -1167,7 +1149,7 @@ end intrinsic;
 ///hide
 intrinsic RamificationDegree(X :: ExtFldPadExact) -> RngIntElt
   {The ramification degree of X.}
-  return &*[Z| RamificationDegree(F) : F in X`tower[2..#X`tower]];
+  return &*[Z| RamificationDegree(F) : F in Tower0(X)];
 end intrinsic;
 
 intrinsic Degree(F :: FldPadExact) -> RngIntElt
@@ -1347,7 +1329,7 @@ end intrinsic;
 ///hide
 intrinsic IsTotallyWildlyRamified(X :: ExtFldPadExact) -> BoolElt
   {True if X is totally wildly ramified.}
-  return IsTotallyRamified(X) and IsPowerOf(RamificationDegree(X), Prime(X`top_field));
+  return IsTotallyRamified(X) and IsPowerOf(RamificationDegree(X), Prime(TopField(X)));
 end intrinsic;
 
 ///ditto
@@ -1402,7 +1384,8 @@ intrinsic ResidueClass(x :: FldPadExactElt) -> FldFinElt
   return x @ m where _,m := ResidueClassField(Parent(x));
 end intrinsic;
 
-///## Approximations
+///## Internals
+///### Approximations
 
 intrinsic WeakValuation(x :: FldPadExactElt) -> ValFldPadExactElt
   {The weak valuation of x.}
@@ -1439,4 +1422,76 @@ intrinsic EnsureAllApproximationsNonzero(x :: FldPadExactElt)
   require ok: "x is weakly zero";
   InterpolateUpTo(x, n);
   assert forall{i : i in [1..n] | not IsWeaklyZero(x`approximations[n])};
+end intrinsic;
+
+///### ExtFldPadExact
+///
+/// This type represents an extension of p-adic fields. It is the second return value of `IsExtensionOf`, and each field caches the extensions of which it is the top field. It can be used to cache information about an extension, such as its degree.
+/// 
+/// For most intrinsics which take two fields forming an extension, there is an alternative form taking a single extension.
+
+///hide
+intrinsic Print(X :: ExtFldPadExact, lvl :: MonStgElt)
+  {Prints X.}
+  printf "%o", Description(X);
+end intrinsic;
+
+intrinsic '/'(E :: FldPadExact, F :: FldPadExact) -> ExtFldPadExact
+  {The extension `E/F`.}
+  ok, X := IsExtensionOf(E, F);
+  require ok: "not an extension";
+  return X;
+end intrinsic;
+
+/// A string describing the extension.
+/// 
+///param BaseName If given, this is used to describe the base field. Otherwise, the base field is not described.
+intrinsic Description(X :: ExtFldPadExact : BaseName:="") -> MonStgElt
+  {A description of the extension.}
+  if not assigned X`description then
+    parts := [Strings()| ];
+    for F in Reverse(Tower0(X)) do
+      case F`xtype:
+      when INERT:
+        Append(~parts, Sprintf("Unramified extension of degree %o", Degree(F)));
+      when EISEN:
+        Append(~parts, Sprintf("Totally ramified extension of degree %o", Degree(F)));
+      else
+        assert false;
+      end case;
+    end for;
+    X`description := Join(parts, " over ");
+  end if;
+  if #BaseName ne 0 then
+    if #X`description ne 0 then
+      return &cat[X`description, " over ", BaseName];
+    else
+      return BaseName;
+    end if;
+  else
+    return X`description;
+  end if;
+end intrinsic;
+
+intrinsic TopField(X :: ExtFldPadExact) -> FldPadExact
+  {The top field of the extension.}
+  return X`top_field;
+end intrinsic;
+
+intrinsic BaseField(X :: ExtFldPadExact) -> FldPadExact
+  {The base field of the extension.}
+  return X`base_field;
+end intrinsic;
+
+/// The tower of intermediate fields.
+/// 
+/// Its length is at least 1. The first entry is the base field, the last entry is the top field, and each entry is the base field of the next.
+intrinsic Tower(X :: ExtFldPadExact) -> []
+  {The tower of intermediate fields.}
+  return X`tower;
+end intrinsic;
+
+intrinsic Tower0(X :: ExtFldPadExact) -> []
+  {Same as `Tower` but with the first entry (the base field) omitted.}
+  return X`tower[2..#X`tower];
 end intrinsic;

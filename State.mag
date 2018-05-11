@@ -1,10 +1,16 @@
+///# Miscellany
+
 freeze;
 
 declare type ExactpAdics_State;
-declare attributes ExactpAdics_State: next_id;
+declare attributes ExactpAdics_State: next_id, warnings;
 
 STATE := New(ExactpAdics_State);
 STATE`next_id := 1;
+STATE`warnings := AssociativeArray();
+
+///## Global ID
+/// Each p-adic object (`AnyPadExact`) has a unique `id` attribute, which is ordered according to dependency.
 
 intrinsic ExactpAdics_NextId() -> RngIntElt
   {The next global id.}
@@ -12,4 +18,59 @@ intrinsic ExactpAdics_NextId() -> RngIntElt
   id := s`next_id;
   s`next_id := id + 1;
   return id;
+end intrinsic;
+
+///## Warnings
+/// For controlling the extent to which errors and warning occur in the package.
+
+valid_warn_actions := {"Ignore", "Warn", "WarnOnce", "Error"};
+
+/// Sets how the warning `name` is displayed. `action` is one of:
+/// - `"Ignore"`: ignores the warning and does nothing
+/// - `"Warn"`: prints the warning to the screen
+/// - `"WarnOnce"`: prints the warning to the screen the first time it occurs
+/// - `"Error"`: raises an error
+intrinsic ExactpAdics_SetWarningAction(name :: MonStgElt, action :: MonStgElt)
+  {Sets how the warning `name` is displayed, where `action` is one of `"Hide"`, `"Warn"`, `"WarnOnce"` and `"Error"`.}
+  require action in valid_warn_actions: "action is not valid";
+  s := STATE;
+  s`warnings[name] := action;
+end intrinsic;
+
+intrinsic ExactpAdics_WarningActionIsDefined(name :: MonStgElt) -> BoolElt, MonStgElt
+  {True if there is a warning action defined for warning `name`. If so, also returns the action.}
+  return IsDefined(STATE`warnings, name);
+end intrinsic;
+
+intrinsic ExactpAdics_GetWarningAction(name :: MonStgElt, dflt :: MonStgElt) -> MonStgElt
+  {The warning action set for warning `name`, if set, or else `dflt`.}
+  ok, ret := ExactpAdics_WarningActionIsDefined(name);
+  if ok then
+    return ret;
+  else
+    require dflt in valid_warn_actions: "invalid dflt";
+    return dflt;
+  end if;
+end intrinsic;
+
+intrinsic ExactpAdics_Warn(name :: MonStgElt, msg : DefaultAction:="Warn", Action:=ExactpAdics_GetWarningAction(name, DefaultAction))
+  {Raises the warning `name` with message `msg`.}
+  case Action:
+  when "Ignore":
+    ;
+  when "Warn", "WarnOnce":
+    printf "Warning (%o): %o\n", name, msg;
+    case Action:
+    when "Warn":
+      printf "Note: you can suppress future warnings with ExactpAdics_SetWarningAction(%m, %m)\n", name, "Ignore";
+    when "WarnOnce":
+      ExactpAdics_SetWarningAction(name, "Ignore");
+    else
+      assert false;
+    end case;
+  when "Error":
+    error Error(<name, msg>);
+  else
+    assert false;
+  end case;
 end intrinsic;

@@ -1,4 +1,5 @@
 ///# Multivariate polynomials
+///toc
 
 import "Utils.mag": Z, Q, OO, WVAL, WZERO, WEQ, CAP_APR;
 import "Promotion.mag": do_binop;

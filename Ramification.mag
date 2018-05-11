@@ -6,6 +6,8 @@
 /// If $L/K$ is totally ramified, then the *ramification polygon of $L/K$* is the ramification polygon of any Eisenstein polynomial defining the extension. If $L/U$ is totally ramified and $U/K$ is unramified then the *ramification polygon of $L/K$* is that of $L/U$ with an additional horizontal face from $((L:U),0)$ to $((L:K),0)$.
 /// 
 /// The Newton polygon is an invariant of an extension and describes the ramification breaks of the *Galois set* $\Gamma(L/K)$ of embeddings $L \hookrightarrow \bar{K}$. This generalizes ramification theory of Galois extensions, where the Galois set is equal to the Galois group.
+/// 
+/// See also [the `pAdicExtensions` package](https://cjdoris.github.io/pAdicExtensions) which includes a more specialised, and more general, representation of ramification polygons.
 
 import "Utils.mag": Z, Q, OO, LAST, TOWER;
 import "FldPad.mag": PRIME, INERT, EISEN;
@@ -196,19 +198,18 @@ end intrinsic;
 intrinsic RamificationFiltration(x :: ExtFldPadExact) -> NwtnPgon
   {The ramification filtration.}
   if not assigned x`ramification_filtration then
-    case #x`tower:
+    case #Tower(x):
     when 0:
       assert false;
     when 1:
-      rt := x`tower;
+      rt := Tower(x);
     when 2:
-      case x`tower[2]`xtype:
+      case Tower(x)[2]`xtype:
       when INERT:
-        rt := x`tower;
+        rt := Tower(x);
       when EISEN:
-        print "RF", Cputime(), "start";
-        E := x`top_field;
-        F := x`base_field;
+        E := TopField(x);
+        F := BaseField(x);
         assert BaseField(E) eq F;
         f := DefiningPolynomial(E);
         r := Evaluate(f, PolynomialRing(E) ! [E| E.1, 1]);
@@ -222,12 +223,10 @@ intrinsic RamificationFiltration(x :: ExtFldPadExact) -> NwtnPgon
         E2 := E;
         EtoE2 := map<E -> E2 | x :-> x>;
         for i in Reverse([1..#pis-1]) do
-          print "RF", Cputime(), "iter", i, "start";
           pi := pis[i];
           d := Degree(E2, F2) div Ds[i];
           pi2 := EtoE2(pi);
           for epoch in [1..99999] do
-            print "RF", Cputime(), "iter", i, "epoch", epoch, "start";
             xpi2 := EpochApproximation(pi2, epoch);
             xm := MinimalPolynomial(xpi2);
             m := WeakApproximation(PolynomialRing(F2) ! xm);
@@ -240,7 +239,6 @@ intrinsic RamificationFiltration(x :: ExtFldPadExact) -> NwtnPgon
             end if;
             newF2 := ext<F2 | m>;
             // TODO: the current approach factorizes f over newF2 and selects a factor; a better approach is to take ri=&*[r:r in rfacs[1..i]], fi=ri(x-E.1), fi being the minimal polynomial of E.1 over F(pi), express the coefficients of fi/F(pi) in terms of pi/F (using linear algebra), and use this to find fi/newF2 by mapping pi to newF2.1
-            print "RF", Cputime(), "iter", i, "epoch", epoch, "factorize";
             ffacs, _, certs := ExactpAdics_Factorization(PolynomialRing(newF2) ! f : DegreeMle:=Ds[i], DegreeGe:=Ds[i], Limit:=1, Extensions);
             if #ffacs eq 0 then
               continue epoch;
@@ -248,31 +246,28 @@ intrinsic RamificationFiltration(x :: ExtFldPadExact) -> NwtnPgon
             ffac := ffacs[1][1];
             assert Degree(ffac) eq Ds[i];
             newE2 := certs[1]`Extension;
-            print "RF", Cputime(), "iter", i, "epoch", epoch, "roots";
             r := Roots(PolynomialRing(newE2) ! ffac)[1][1];
-            print "RF", Cputime(), "iter", i, "epoch", epoch, "done";
             newEtoE2 := map<E -> newE2 | x :-> &+[cs[i] * r^(i-1) : i in [1..#cs]] where cs:=Eltseq(x)>;
             F2 := newF2;
             E2 := newE2;
             EtoE2 := newEtoE2;
             break epoch;
           end for;
-          print "RF", Cputime(), "done";
           Append(~rt, F2);
         end for;
       else
         error "only implemented for extensions in standard form";
       end case;
     when 3:
-      if x`tower[2]`xtype eq INERT and x`tower[3]`xtype eq EISEN then
-        rt := [x`base_field] cat RamificationFiltration(x`tower[3] / x`tower[2]);
+      if Tower(x)[2]`xtype eq INERT and Tower(x)[3]`xtype eq EISEN then
+        rt := [BaseField(x)] cat RamificationFiltration(Tower(x)[3] / Tower(x)[2]);
       else
         error "only implemented for extensions in standard form";
       end if;
     else
       error "only implemented for extensions in standard form";
     end case;
-    assert rt[1] eq x`base_field;
+    assert rt[1] eq BaseField(x);
     assert Degree(rt[#rt], rt[1]) eq Degree(x);
     for i in [1..#rt] do
       for j in [1..i] do
@@ -392,7 +387,7 @@ end intrinsic;
 intrinsic TransitionFunction(x :: ExtFldPadExact) -> HassHerbTransFunc
   {The Hasse-Herbrand transition function.}
   if not assigned x`transition_function then
-    x`transition_function := hhtf_merge_tower([TransitionFunction(F) : F in x`tower[2..#x`tower]]);
+    x`transition_function := hhtf_merge_tower([TransitionFunction(F) : F in Tower0(x)]);
   end if;
   return x`transition_function;
 end intrinsic;

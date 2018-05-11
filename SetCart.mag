@@ -1,4 +1,5 @@
 ///# Aggregates
+///toc
 ///## Tuples
 
 declare type SetCart_PadExact[Tup_PadExact]: StrPadExact;
@@ -12,7 +13,7 @@ declare attributes Tup_PadExact
   , to_sequence
   ;
 
-///## Cartesian products
+///## Creation of cartesian products
 
 intrinsic ExactpAdics_CartesianProduct(components :: Tup) -> SetCart_PadExact
   {The cartesian product of the components.}

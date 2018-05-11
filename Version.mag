@@ -1,0 +1,14 @@
+///# Miscellany
+/// Bits and bobs not belonging to the main features of the package, but needed by the package and useful nonetheless.
+///toc
+///## Version
+
+intrinsic ExactpAdics_Version() -> RngIntElt, RngIntElt, RngIntElt
+  {The version of the ExactpAdics package, as major, minor and patch numbers.}
+  return 0,1,0;
+end intrinsic;
+
+intrinsic ExactpAdics_Implementation() -> RngIntElt
+  {This returns 2, to distinguish this package from ExactpAdics, for which this returns 1.}
+  return 2;
+end intrinsic;

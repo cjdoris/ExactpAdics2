@@ -1109,13 +1109,16 @@ function exact_remove_zeros(f)
   end if;
 end function;
 
-/// Called internally by `Factorization` with `Alg:="OM"`.
+/// Called internally by `Factorization`.
 /// 
 ///param Proof:=true When true, the output is proven.
 ///param Certificates:=false When true, implies `Proof:=true` and returns certificates.
 ///param Extensions:=false When true, implies `Certificates:=true` and certificates include extensions.
 ///param InternalData:=false When true, implies `Certificates:=true` and certificates include the state of the branch leading to this factor.
 ///param SimpleLift:=false When true, uses "single factor lifting" just enough to use simple Hensel lifting on the factors. Probably slower, but possibly more reliable.
+///param DegreeMle:=0 Only returns factors whose degree divides this, i.e. the degree is "multiplicatively less than" this.
+///param DegreeGe:=1 Only returns factors whose degree is at least this.
+///param Limit A bound on the number of factors returned.
 intrinsic ExactpAdics_Factorization(f :: RngUPolElt_FldPadExact : Proof:=true, Certificates:=false, Extensions:=false, InternalData:=false, SimpleLift:=false, DegreeMle:=0, DegreeGe:=1, Limit:=Infinity()) -> [], FldPadExactElt, []
   {Factorization of f.}
   require WeakDegree(f) ge 0: "f must be non zero";
@@ -1266,7 +1269,10 @@ end intrinsic;
 ///param Extensions:=false When true, implies `Certificates:=true` and certificates include extensions.
 ///param InternalData:=false When true, implies `Certificates:=true` and certificates include the state of the branch leading to this factor.
 ///param Lift:=true When false, does not lift the result to full precision. Hence faster, but gives less precise results.
-intrinsic ExactpAdics_Factorization(f :: RngUPolElt[FldPad] : Proof:=true, Certificates:=false, Extensions:=false, InternalData:=false, Lift:=true) -> [], FldPadElt, []
+///param DegreeMle:=0 Only returns factors whose degree divides this, i.e. the degree is "multiplicatively less than" this.
+///param DegreeGe:=1 Only returns factors whose degree is at least this.
+///param Limit A bound on the number of factors returned.
+intrinsic ExactpAdics_Factorization(f :: RngUPolElt[FldPad] : Proof:=true, Certificates:=false, Extensions:=false, InternalData:=false, Lift:=true, DegreeMle:=0, DegreeGe:=1, Limit:=Infinity()) -> [], FldPadElt, []
   {"}
   Certificates or:= Extensions;
   Certificates or:= InternalData;
@@ -1285,7 +1291,7 @@ intrinsic ExactpAdics_Factorization(f :: RngUPolElt[FldPad] : Proof:=true, Certi
   K2 := Precision(K) eq Infinity() select ChangePrecision(K, pol_max_precision(f)) else K;
   deg := Degree(f);
   st := state_make(ChangeRing(f, K2));
-  factorize(~st);
+  factorize(~st : DegreeMle:=DegreeMle, DegreeGe:=DegreeGe, Limit:=Limit);
   lc := LeadingCoefficient(f);
   brs := irred_done_branches(st : TotalDegree:=deg);
   if Proof then
@@ -1356,7 +1362,7 @@ intrinsic ExactpAdics_Factorization(f :: RngUPolElt[FldPad] : Proof:=true, Certi
   end if;  
 end intrinsic;
 
-/// Called internally by `Roots` with `Alg:="OM"`.
+/// Called internally by `Roots`.
 intrinsic ExactpAdics_Roots(f :: RngUPolElt_FldPadExact) -> []
   {The roots of f.}
   vprint ExactpAdics_Factorization: Cputime(), "start";
