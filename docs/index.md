@@ -5,7 +5,9 @@
 
 This is the user manual for the `ExactpAdics2` package for the [Magma computer algebra system](http://magma.maths.usyd.edu.au/magma). The aim of this package is to provide the user with a higher-level interface to computing with p-adics, making it easier to perform everyday computations and coding more complex algorithms.
 
-The rationale for the design of the package and an overview of the internal structure can be found in [this article]().
+This is a re-implementation of [the `ExactpAdics` package](https://cjdoris.github.io/ExactpAdics) which trades off doing things to slightly greater precision against hugely simplified dependency tracking. As such, for most users **we currently recommend `ExactpAdics2` over `ExactpAdics`**.
+
+The rationale for the design of the package, an overview of the internal structure, and a comparison with `ExactpAdics` can be found in [this article]().
 
 **If you find this software useful, please cite the above paper in any publications.**
 
