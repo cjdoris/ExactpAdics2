@@ -85,6 +85,7 @@ declare attributes FldPadExact
   , uniformizing_element
   , residue_generator
   , generator
+  , absolute_generator
   , polynomial_ring
   , mvar_polynomial_ring
   , residue_class_field
@@ -352,6 +353,7 @@ end intrinsic;
 
 ///### From approximate fields
 
+///param CheckUnique:=true When `true`, checks that the input is precise enough to determine the field up to isomorphism.
 intrinsic ExactpAdicField(xF :: FldPad : CheckUnique:=true) -> FldPadExact
   {An exact p-adic field isomorphic to xF.}
   if Precision(xF) eq OO then
@@ -363,8 +365,9 @@ intrinsic ExactpAdicField(xF :: FldPad : CheckUnique:=true) -> FldPadExact
   end if;
 end intrinsic;
 
+///param CheckUnique:=true When `true`, checks that the input is precise enough to determine the field up to isomorphism.
 intrinsic ExactpAdicField(xE :: FldPad, xF :: FldPad, F :: FldPadExact : CheckUnique:=true) -> FldPadExact
-  {Given an extension xE/xF, such that xF is parallel-coercible to and from any approximation field of F, returns E such that E/F is isomorphic to xE/xF. Note that ext<F | xE, xF> is shorthand for this.}
+  {Given an extension `xE/xF`, such that xF is parallel-coercible to and from any approximation field of F, returns E such that `E/F` is isomorphic to `xE/xF`. Note that `ext<F | xE, xF>` is shorthand for this.}
   require ISEXTOF(xE, xF): "xE must be an extension of xF";
   require AbsoluteDegree(xF) eq AbsoluteDegree(F): "Domain of xF must be isomorphic to F";
   // base case
@@ -411,6 +414,7 @@ end intrinsic;
 
 ///### Distinguished elements
 
+/// Zero and one.
 intrinsic Zero(F :: FldPadExact) -> FldPadExactElt
   {The zero element of F.}
   if not assigned F`zero then
@@ -424,12 +428,26 @@ intrinsic Zero(F :: FldPadExact) -> FldPadExactElt
   return F`zero;
 end intrinsic;
 
+///ditto
 intrinsic One(F :: FldPadExact) -> FldPadExactElt
   {The one element of F.}
   if not assigned F`one then
     F`one := _elt_from_rational(F, 1);
   end if;
   return F`one;
+end intrinsic;
+
+intrinsic Generator(F :: FldPadExact) -> FldPadExactElt
+  {A generator of F.}
+  if not assigned F`generator then
+    g := New(FldPadExactElt);
+    g`parent := F;
+    g`dependencies := [* F *];
+    g`get_approximation := func<n,xF | xF[1].1>;
+    Init(g);
+    F`generator := g;
+  end if;
+  return F`generator;
 end intrinsic;
 
 intrinsic UniformizingElement(F :: FldPadExact) -> FldPadExactElt
@@ -468,17 +486,22 @@ intrinsic ResidueGenerator(F :: FldPadExact) -> FldPadExactElt
   return F`residue_generator;
 end intrinsic;
 
-intrinsic Generator(F :: FldPadExact) -> FldPadExactElt
-  {A generator of F.}
-  if not assigned F`generator then
-    g := New(FldPadExactElt);
-    g`parent := F;
-    g`dependencies := [* F *];
-    g`get_approximation := func<n,xF | xF[1].1>;
-    Init(g);
-    F`generator := g;
+/// A generator of F over its prime subfield.
+/// 
+/// If F is absolutely unramified, this will be a residue generator. If absolutely totally ramified, this will be a uniformizing element. Otherwise, it will be the sum of the two.
+intrinsic AbsoluteGenerator(F :: FldPadExact) -> FldPadExactElt
+  {A generator of F over its prime subfield.}
+  if not assigned F`absolute_generator then
+    if AbsoluteRamificationDegree(F) eq 1 then
+      g := ResidueGenerator(F);
+    elif AbsoluteInertiaDegree(F) eq 1 then
+      g := UniformizingElement(F);
+    else
+      g := ResidueGenerator(F) + UniformizingElement(F);
+    end if;
+    F`absolute_generator := g;
   end if;
-  return F`generator;
+  return F`absolute_generator;
 end intrinsic;
 
 ///hide
@@ -534,6 +557,7 @@ intrinsic SetApproximationHook(F :: FldPadExact, n :: RngIntElt, ~xF :: FldPad)
 end intrinsic;
 
 ///### From coefficients
+/// *Not implemented.*
 
 ///### Coercion
 ///
@@ -631,6 +655,7 @@ intrinsic IsCoercible(F :: FldPadExact, X :: []) -> BoolElt, .
 end intrinsic;
 
 ///### Random
+/// *Not implemented.*
 
 ///## Basic operations
 
@@ -676,6 +701,7 @@ intrinsic Valuation(x :: FldPadExactElt) -> ValFldPadExactElt
   return x`valuation;
 end intrinsic;
 
+///param Minimize:=false When `true`, the returned epoch is minimal.
 intrinsic IsDefinitelyNonzero(x :: FldPadExactElt : Minimize:=false) -> BoolElt, RngIntElt
   {True if x is nonzero. If so, returns an epoch in which the approximation is nonzero.}
   if Minimize then
@@ -700,11 +726,6 @@ intrinsic IsDefinitelyNonzero(x :: FldPadExactElt : Minimize:=false) -> BoolElt,
     end if;
     return true, x`nonzero_epoch;
   end if;
-end intrinsic;
-
-intrinsic IsDefinitelyZero(x :: FldPadExactElt) -> BoolElt
-  {True if x is definitely zero. That is, it is weakly zero and has infinite absolute precision.}
-  return IsWeaklyZero(x) and AbsolutePrecision(x) eq OO;
 end intrinsic;
 
 intrinsic Eltseq(x :: FldPadExactElt) -> []
@@ -1039,6 +1060,7 @@ intrinsic ValuationLtValuation(x :: FldPadExactElt, y :: FldPadExactElt) -> Bool
 end intrinsic;
 
 ///### Smallest and closest
+/// *Not implemented.*
 
 ///## Extensions
 
@@ -1230,7 +1252,7 @@ end intrinsic;
 
 ///### Ramification predicates
 
-/// True if E is unramified over F or its base field. That is, the ramification degree is 1.
+/// True if `E` is unramified over `F` or its base field. That is, the ramification degree is 1.
 intrinsic IsUnramified(E :: FldPadExact) -> BoolElt
   {True if E is unramified over its base field.}
   return RamificationDegree(E) eq 1;
@@ -1248,7 +1270,7 @@ intrinsic IsUnramified(E :: FldPadExact, F :: FldPadExact) -> BoolElt
   return RamificationDegree(E, F) eq 1;
 end intrinsic;
 
-/// True if E is ramified over F or its base field. That is, the ramification degree is not 1.
+/// True if `E` is ramified over `F` or its base field. That is, the ramification degree is not 1.
 intrinsic IsRamified(E :: FldPadExact) -> BoolElt
   {True if E is ramified over its base field.}
   return RamificationDegree(E) ne 1;
@@ -1266,7 +1288,7 @@ intrinsic IsRamified(E :: FldPadExact, F :: FldPadExact) -> BoolElt
   return RamificationDegree(E, F) ne 1;
 end intrinsic;
 
-/// True if E is totally ramified over F or its base field. That is, the inertia degree is 1.
+/// True if `E` is totally ramified over `F` or its base field. That is, the inertia degree is 1.
 intrinsic IsTotallyRamified(E :: FldPadExact) -> BoolElt
   {True if E is totally ramified over its base field.}
   return InertiaDegree(E) eq 1;
@@ -1284,7 +1306,7 @@ intrinsic IsTotallyRamified(E :: FldPadExact, F :: FldPadExact) -> BoolElt
   return InertiaDegree(E, F) eq 1;
 end intrinsic;
 
-/// True if E is tamely ramified over F or its base field. That is, the ramification degree is indivisible by `p`.
+/// True if `E` is tamely ramified over `F` or its base field. That is, the ramification degree is indivisible by `p`.
 intrinsic IsTamelyRamified(E :: FldPadExact) -> BoolElt
   {True if E is tamely ramified over its base field.}
   return not IsDivisibleBy(RamificationDegree(E), Prime(E));
@@ -1302,7 +1324,7 @@ intrinsic IsTamelyRamified(E :: FldPadExact, F :: FldPadExact) -> BoolElt
   return not IsDivisibleBy(RamificationDegree(E, F), Prime(E));
 end intrinsic;
 
-/// True if E is wildly ramified over F or its base field. That is, the ramification degree is divisible by `p`.
+/// True if `E` is wildly ramified over `F` or its base field. That is, the ramification degree is divisible by `p`.
 intrinsic IsWildlyRamified(E :: FldPadExact) -> BoolElt
   {True if E is wildly ramified over its base field.}
   return not IsTamelyRamified(E);
@@ -1320,7 +1342,7 @@ intrinsic IsWildlyRamified(E :: FldPadExact, F :: FldPadExact) -> BoolElt
   return not IsTamelyRamified(E, F);
 end intrinsic;
 
-/// True if E is totally wildly ramified over F or its base field. That is, the inertia degree is 1 and the ramification degree is a power of `p`.
+/// True if `E` is totally wildly ramified over `F` or its base field. That is, the inertia degree is 1 and the ramification degree is a power of `p`.
 intrinsic IsTotallyWildlyRamified(E :: FldPadExact) -> BoolElt
   {True if E is totally wildly ramified over its base field.}
   return IsTotallyRamified(E) and IsPowerOf(RamificationDegree(E), Prime(E));
@@ -1339,14 +1361,16 @@ intrinsic IsTotallyWildlyRamified(E :: FldPadExact, F :: FldPadExact) -> BoolElt
 end intrinsic;
 
 ///### Printing
+/// *Not implemented.*
 
 ///### Standard form
+/// *Not implemented.*
 
 ///## Residue class field
 
 /// The residue class field `FF` of F, and the quotient map from `F` to `FF`.
 /// 
-/// Note that the quotient map has an inverse whose approximations always have absolute precision 1, that is, the precision does not increase with epoch. Use `WeakApproximation` to choose a representative to infinite precision.
+/// Note that the quotient map has an inverse whose approximations always have absolute precision 1, that is, the precision does not increase with epoch. Use [`WeakApproximation`](#WeakApproximation--FldPadExactElt) to choose a representative to infinite precision.
 intrinsic ResidueClassField(F :: FldPadExact) -> FldFin, Map
   {The residue class field of F.}
   if not assigned F`residue_class_map then
@@ -1393,13 +1417,19 @@ intrinsic WeakValuation(x :: FldPadExactElt) -> ValFldPadExactElt
 end intrinsic;
 
 intrinsic AbsolutePrecision(x :: FldPadExactElt) -> ValFldPadExactElt
-  {The weak valuation of x.}
+  {The absolute precision of x.}
   return ExactpAdics_APr(BestApproximation(x));
 end intrinsic;
 
 intrinsic IsWeaklyZero(x :: FldPadExactElt) -> BoolElt
   {True if x is weakly zero.}
   return IsWeaklyZero(BestApproximation(x));
+end intrinsic;
+
+intrinsic IsDefinitelyZero(x :: FldPadExactElt) -> BoolElt
+  {True if x is definitely zero. That is, it is weakly zero and has infinite absolute precision.}
+  xx := BestApproximation(x);
+  return IsWeaklyZero(xx) and AbsolutePrecision(xx) eq OO;
 end intrinsic;
 
 intrinsic WeakApproximation(x :: FldPadExactElt) -> FldPadExactElt
@@ -1426,7 +1456,7 @@ end intrinsic;
 
 ///### ExtFldPadExact
 ///
-/// This type represents an extension of p-adic fields. It is the second return value of `IsExtensionOf`, and each field caches the extensions of which it is the top field. It can be used to cache information about an extension, such as its degree.
+/// This type represents an extension of p-adic fields. It is the second return value of [`IsExtensionOf`](#IsExtensionOf), and each field caches the extensions of which it is the top field. It can be used to cache information about an extension, such as its degree.
 /// 
 /// For most intrinsics which take two fields forming an extension, there is an alternative form taking a single extension.
 

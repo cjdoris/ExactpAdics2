@@ -296,6 +296,7 @@ intrinsic AutomorphismGroup(E :: FldPadExact, F :: FldPadExact) -> GrpPerm, Map
   return AutomorphismGroup(E/F);
 end intrinsic;
 
+///hide
 intrinsic AutomorphismGroup(X :: ExtFldPadExact) -> GrpPerm, .
   {The automorphism group of X as a permutation group, and the map from the group to the set of automorphisms.}
   if not assigned X`automorphism_group then
