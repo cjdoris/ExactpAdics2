@@ -1,16 +1,13 @@
 # ExactpAdicsCommon
 
-Common code for the [ExactpAdics](https://github.com/cjdoris/ExactpAdics) and [ExactpAdics2](https://github.com/cjdoris/ExactpAdics2) packages. These need to manually merge from this repository when changes are made. Merge for the first time as follows:
+Common code for the [ExactpAdics](https://github.com/cjdoris/ExactpAdics) and [ExactpAdics2](https://github.com/cjdoris/ExactpAdics2) packages. These need to manually merge from this repository when changes are made. Set this up as a submodule once:
 
 ```
-$ git remote add common /path/to/ExactpAdicsCommon
-$ git fetch common
-$ git merge --allow-unrelated-histories common/master
+$ git submodule add /path/to/here.git common
 ```
 
-and subsequent times as follows:
+and periodically merge as follows:
 
 ```
-$ git fetch common
-$ git merge common/master
+$ git submodule update --remote --merge
 ```
