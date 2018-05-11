@@ -1,0 +1,1219 @@
+// An implementation of a OM-type algorithm for factorizing univariate polynomials. The core of the implementation represents the polynomial as a function taking a precision and returning a polynomial to a greater precision; we can use this to make factoring algorithms for both RngUPolElt[FldPad] and RngUPolElt_FldPadExact. We define intrinsic "Factorization" for exact p-adics and "ExactpAdics_Factorization" for inexact p-adics (to avoid name clashes).
+
+///# Univariate polynomials
+///## Root-finding and factorization
+
+declare verbose ExactpAdics_Factorization, 2;
+
+Q := Rationals();
+Z := Integers();
+OO := Infinity();
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// UTILS
+// 
+
+VAL := Valuation;
+APR := AbsolutePrecision;
+WZERO := IsWeaklyZero;
+WEQ := IsWeaklyEqual;
+ZERO := func<F, n | ShiftValuation(z, n - VAL(z)) where z:=(F!1)-(F!1)>;
+CHANGE_APR := func<x, n | n eq OO select x else (IsWeaklyZero(x) or n le VAL(x)) select ZERO(Parent(x), n) else ChangePrecision(x, n-VAL(x))>;
+CAP_APR := func<x, n | n lt APR(x) select CHANGE_APR(x, n) else x>;
+
+function eisensteinPolyDefinesUniqueExtension(f)
+  d := Degree(f);
+  assert IsEisenstein(f);
+  D := Discriminant(f);
+  if WZERO(D) then
+    return false;
+  end if;
+  vD := VAL(D);
+  j := vD - d + 1;
+  FUDGE := 2*d*AbsoluteRamificationDegree(BaseRing(f));
+  apr := Floor(1+2*j/d) + 1 + FUDGE;
+  return forall{c : c in Coefficients(f) | AbsolutePrecision(c) ge apr};
+end function;
+
+function pol_max_precision(f)
+  return Max([VAL(c) lt OO select APR(c) - VAL(c) else 0 : c in Coefficients(f)]);
+end function;
+
+function dot_product(U, xs, ys)
+  assert #xs eq #ys;
+  return &+[U| xs[i] * ys[i] : i in [1..#xs]];
+end function;
+
+function mdot_product(U, xs, ys)
+  assert #xs eq #ys;
+  return &*[U| xs[i]^ys[i] : i in [1..#xs]];
+end function;
+
+function coeff(c, i)
+  case Type(c):
+  when RngUPolElt:
+    return Coefficient(c, i);
+  when FldPadElt:
+    assert i ge 0;
+    return i eq 0 select c else Parent(c)!0;
+  else
+    assert false;
+  end case;
+end function;
+
+function rcoeff(f, idxs)
+  for i in idxs do
+    f := Coefficient(f, i);
+  end for;
+  return f;
+end function;
+
+// evaluates f(x) as a homogenous polynomial, i.e. f(x/y)*y^deg(f)
+function evaluate2(f, x, y)
+  return &+[Coefficient(f,i) * x^i * y^(d-i) : i in [0..d]] where d:=Degree(f);
+end function;
+
+// polynomial expansion
+function in_terms_of(f, g)
+  cs := [];
+  while Degree(f) ge 0 do
+    f, c := Quotrem(f, g);
+    Append(~cs, c);
+  end while;
+  return cs;
+end function;
+
+// exact division
+function xdiv(x, y)
+  ok, z := IsDivisibleBy(x, y);
+  assert ok;
+  return z;
+end function;
+
+// keep dividing x by gcd(x,y) until coprime
+function rdiv(x, y)
+  while true do
+    g := GCD(x, y);
+    if g eq 1 then
+      return x;
+    else
+      x := x div g;
+    end if;
+  end while;
+end function;
+
+// maximize GCD(a+Ab,c); return the maximal value and an example A
+function maximize_GCD(a,b,c)
+  if b eq 0 then
+    return GCD(a,c), 0;
+  end if;
+  g := GCD(a,b);
+  a2 := xdiv(a, g);
+  b2 := xdiv(b, g);
+  g2 := GCD(g, c);
+  g3 := xdiv(g, g2);
+  c2 := xdiv(c, g2);
+  // GCD(a + A b, c)
+  // = GCD(g (a2 + A b2, c))
+  // = GCD(g2 g3 (a2 + A b2), c2 g2)
+  // = g2 GCD(g3 (a2 + A b2), c2)
+  // = g2 GCD(a2 + A b2, c2)
+  // It's easy to see that (M|c2 and M|a2+Ab2 for some A) iff (M|c2 and gcd(M,b2)=1), in which case A=-a2/b2 mod M.
+  // So we want M to be the largest divisor of c2 coprime to b2, i.e. the repeated division of c2 by b2
+  M := Abs(rdiv(c2, b2));
+  assert M gt 0;
+  ans := g2 * M;
+  assert ans gt 0;
+  A := (-a2 * InverseMod(b2, M)) mod M;
+  assert A ge 0;
+  assert GCD(a2+A*b2,c2) eq M;
+  assert GCD(a+A*b,c) eq ans;
+  return ans, A;
+end function;
+
+// writing s=h/e, t=h1/e1, returns r=h3/e3 and A where e3 is as small as possible and s=r+At
+// note that   (h3 - B e3 h1)/e3, A + B e1   is also a solution for any integer B
+// write h3/e3 = h/e - Ah1/e1 = (h e1 - A h1 e) / (e e1) so e3 is minimized when gcd(h e1 - A h1 e, e e1) is maximized
+function reduce_rational(s, t)
+  h := Numerator(s);
+  e := Denominator(s);
+  h1 := Numerator(t);
+  e1 := Denominator(t);
+  e2, A := maximize_GCD(h*e1, -h1*e, e*e1);
+  e3 := xdiv(e*e1, e2);
+  r := s - A*t;
+  assert A ge 0;
+  assert Denominator(r) eq e3;
+  return r, A;
+end function;
+
+// just raises a not implemented error, but is a function so can be used anywhere in an expression
+function not_implemented(:msg:="")
+  if #msg eq 0 then
+    error "not implemented";
+  else
+    error Sprintf("not implemented: %o", msg);
+  end if;
+end function;
+
+// exact division (with checking)
+function xdiv(x, y)
+  ok, z := IsDivisibleBy(x, y);
+  assert ok;
+  return z;
+end function;
+
+// repeated division: keep dividing x by gcd(x,y) until coprime
+function rdiv(x, y)
+  while true do
+    g := GCD(x, y);
+    if g eq 1 then
+      return x;
+    else
+      x := x div g;
+    end if;
+  end while;
+end function;
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// MAYBE VALUATIONS
+// 
+
+MVAL := recformat<
+  val,       // the valuation
+  is_exact   // if true, the valuation is exact, else it is a lower bound
+>;
+
+function mval_make(val, is_exact)
+  if Type(val) eq ExtReElt then
+    val := Retrieve(val);
+  end if;
+  return rec<MVAL | val:=val, is_exact:=is_exact>;
+end function;
+
+function mval_make_FldPadElt(x)
+  assert Type(x) eq FldPadElt;
+  FUDGE := (e eq 1 select 0 else 2*e) where e := AbsoluteRamificationDegree(Parent(x));
+  apr := APR(x) - FUDGE;
+  val := Min(VAL(x), apr);
+  return mval_make(val, val lt apr);
+end function;
+
+function mval_is_exact(v)
+  return v`is_exact;
+end function;
+
+function mval_wval(v)
+  return v`val;
+end function;
+
+function mval_val(v)
+  assert mval_is_exact(v);
+  return mval_wval(v);
+end function;
+
+function mval_min(vs)
+  vmin := Min([mval_wval(v) : v in vs]);
+  return mval_make(vmin, exists{v : v in vs | mval_wval(v) eq vmin and mval_is_exact(v)});
+end function;
+
+function mval_add(v, w)
+  return mval_make(mval_wval(v) + mval_wval(w), mval_is_exact(v) and mval_is_exact(w));
+end function;
+
+function mval_shift(v, shift)
+  return mval_make(mval_wval(v) + shift, mval_is_exact(v));
+end function;
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// MAYBES - either a value or NULL
+// 
+
+MAYBE := recformat<value>;
+NULL := rec<MAYBE | >;
+
+function mb_make(x)
+  return rec<MAYBE | value:=x>;
+end function;
+
+function mb_is_null(x)
+  return not assigned x`value;
+end function;
+
+function mb_has_value(x)
+  if assigned x`value then
+    return true, x`value;
+  else
+    return false, _;
+  end if;
+end function;
+
+function mb_value(x)
+  return x`value;
+end function;
+
+// f is a function value->value
+function mb_apply(f, x)
+  return mb_is_null(x) select NULL else mb_make(f(mb_value(x)));
+end function;
+
+// f is a function value->maybe 
+function mb_apply_mb(f, x)
+  return mb_is_null(x) select NULL else f(mb_value(x));
+end function;
+
+// [maybe(value)] -> maybe([value])
+function mb_seq(xs)
+  return exists{x : x in xs | mb_is_null(x)} select NULL else mb_make([mb_value(x) : x in xs]);
+end function;
+
+function mb_reduce(f, xs)
+  return mb_apply(f, mb_seq(xs));
+end function;
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// RECFORMATS
+// STATE: internal state of factorize() routine
+// BRANCH: a single branch of factorize() (which works breadth first using a FILO queue)
+// BASE: an element of the polynomial basis of a branch
+// 
+
+STATE := recformat<
+  // successive approximations of pol
+  xpol_state,
+  xpol_get,
+  xpols,
+  // branches of the algorithm
+  brs_todo,
+  brs_done
+>;
+
+BRANCH := recformat<
+  on_pop,            // instructions for the next iteration
+  xpol_index,        // index into xpols
+  xpol,              // xpols[xpol_index]
+  basis,             // [rec<BASE|>,...] polynomial basis
+  offset,            // offset to apply before the basis; e.g. when root-finding, we don't need to put anything in the basis, it's all offsets; once the basis has an element, offsets go there
+  xpolx,             // xpol expended in terms of the basis and the offset
+  width,             // only consider the newton polygon on [0..width]
+  slopes_done,       // set of slopes already done in this branch
+  // the base field
+  basefield,           // BaseRing(xpol), a FldPad
+  polring,             // Parent(xpol), a RngUPol[FldPad]
+  resfield,            // residue class field of basefield
+  // about the factor
+  done,              // when set, done, the value provides further information ("is_irreducible" or "precision_error")
+  flatten_errs        // errors in the precision of the flattened factor
+>;
+
+BASE := recformat<
+  valuation,              // val(x)
+  ramdeg, resdeg, deg,    // ramification degree, residue degree, degree (deg=ramdeg*resdeg)
+  absramdeg, absresdeg, absdeg, // cumulative degrees
+  Pval, P, Pinv, Pinvres, // Pval=valuation*ramdeg, val(P) = -val(Pinv) = Pval and P*Pinv ~ Pinvres
+  respol,                 // respol(x^ramdeg / P) == 0, deg(respol) = resdeg
+  // respolx,                // respol in terms of earlier basis
+  resfield,               // extension defined by respol
+  resroot,                // root of respol in resfield, i.e. x^ramdeg ~ P*resroot
+  resroot2,               // Pinvres*resroot, so x^ramdeg * Pinv ~ resroot2
+  resroot2x,              // x^ramdeg*Pinv, so resroot2x ~ resroot2
+  rescoeffsmap,           // given w in resfield, returns its coefficients in the basis [resroot2^j : j in [0..resdeg-1]]
+  pol,                    // (flat) respolx(x^e2 / P) * P^f, deg(pol) = deg
+  polx,                   // (expanded)
+  basering,               // polring from the basis before
+  polring                 // PolynomialRing(polring), Parent(pol)
+>;
+
+function state_make(f)
+  assert ExtendedType(f) eq RngUPolElt[FldPad];
+  return rec<STATE |
+    xpol_state := false,
+    xpol_get := function(xst) return false, _, _; end function,
+    xpols := [* f *],
+    brs_todo := [rec<BRANCH |
+      on_pop := [* "next_xpol" *],
+      xpol_index := 0,
+      basis := [],
+      offset := 0,
+      slopes_done := {},
+      resfield := ResidueClassField(Integers(BaseRing(f))),
+      width := Degree(f)
+    >],
+    brs_done := []
+  >;
+end function;
+
+function polring(br : k:=#br`basis)
+  return k eq 0 select br`polring else br`basis[k]`polring;
+end function;
+
+function basering(br : k:=#br`basis)
+  return k eq 0 select br`basefield else br`basis[k]`basering;
+end function;
+
+function resfield(br : k:=#br`basis)
+  return k eq 0 select br`resfield else br`basis[k]`resfield;
+end function;
+
+function absramdeg(br : k:=#br`basis)
+  return k eq 0 select 1 else br`basis[k]`absramdeg;
+end function;
+
+function absresdeg(br : k:=#br`basis)
+  return k eq 0 select 1 else br`basis[k]`absresdeg;
+end function;
+
+function absdeg(br : k:=#br`basis)
+  return k eq 0 select 1 else br`basis[k]`absdeg;
+end function;
+
+function expand(pol, br : k:=#br`basis)
+  pol := br`polring ! pol;
+  if k eq 0 then
+    return Evaluate(pol, br`polring ! [br`offset, 1]);
+  else
+    return polring(br : k:=k) ! [expand(c, br : k:=k-1) : c in in_terms_of(pol, br`basis[k]`pol)];
+  end if;
+end function;
+
+function base_expand(c, br : k:=#br`basis)
+  if k eq 0 then
+    return br`polring ! c;
+  else
+    return expand(c, br : k:=k-1);
+  end if;
+end function;
+
+function flatten(br, pol : k:=#br`basis)
+  pol := polring(br : k:=k) ! pol;
+  for i in [k..1 by -1] do
+    pol := Evaluate(pol, br`basis[i]`polx);
+  end for;
+  pol := Evaluate(pol, br`polring ! [-br`offset, 1]);
+  return pol;
+end function;
+
+function base_flatten(br, pol : k:=#br`basis)
+  if k eq 0 then
+    return br`polring ! pol;
+  else
+    return flatten(br, pol : k:=k-1);
+  end if;
+end function;
+
+function base_reduce(br, c : k:=#br`basis)
+  if k eq 0 then
+    return c;
+  else
+    return base_expand(base_flatten(br, c : k:=k) mod br`basis[k]`pol, br : k:=k);
+  end if;
+end function;
+
+function pol_reduce(br, f : k:=#br`basis)
+  return polring(br : k:=k) ! [base_reduce(br, c : k:=k) : c in Coefficients(polring(br : k:=k) ! f)];
+end function;
+
+function base_mul_reduce(br, c, d : k:=#br`basis)
+  return base_reduce(br, c*d : k:=k);
+end function;
+
+function base_prod_reduce(br, cs : k:=#br`basis)
+  ret := basering(br : k:=k) ! 1;
+  for c in cs do
+    ret := base_mul_reduce(br, ret, c : k:=k);
+  end for;
+  return ret;
+end function;
+
+function base_pow_reduce(br, c, n : k:=#br`basis)
+  assert n ge 0;
+  ret := basering(br : k:=k) ! 1;
+  rem := n;
+  cpow := c;
+  while rem ne 0 do
+    rem, sgn := Quotrem(rem, 2);
+    if sgn eq 1 then
+      ret := base_mul_reduce(br, ret, cpow : k:=k);
+    end if;
+    cpow := base_mul_reduce(br, cpow, cpow : k:=k);
+  end while;
+  return ret;
+end function;
+
+// the valuation of f as an mval
+// f must already be reduced, unless reduce:=true
+function mvaluation(br, f : k:=#br`basis, reduce:=false)
+  if reduce then
+    f := base_reduce(br, f : k:=k);
+  end if;
+  // first collect the coefficient and valuation of each term
+  xs := [car<basering(br:k:=k), Q> | <f, 0>];
+  for i in [k..1 by -1] do
+    b := br`basis[i];
+    deg := b`deg;
+    val := b`valuation;
+    xsnew := [car<basering(br:k:=i-1), Q> | ];
+    for x in xs do
+      c, v := Explode(x);
+      assert Degree(c) lt deg;
+      for j in [0..Degree(c)] do
+        Append(~xsnew, <Coefficient(c, j), v + j*val>);
+      end for;
+    end for;
+    xs := xsnew;
+  end for;
+  // now compute the valuation of the coefficient, add it up and take the minimum
+  return mval_min([mval_shift(mval_make_FldPadElt(x[1]), x[2]) : x in xs]);
+end function;
+
+// (maybe) the residue class of c in resfield(br : k:=k)
+function mb_residue_class(br, c : k:=#br`basis, val:=0, reduce:=false)
+  if reduce then
+    c := base_reduce(br, c : k:=k);
+  end if;
+  assert IsDivisibleBy(absramdeg(br : k:=k), Denominator(val));
+  resfld := resfield(br : k:=k);
+  xs := [car<basering(br : k:=k), Q, resfld> | <c, 0, 1>];
+  // collect the coefficient, valuation and residue class of each term
+  for i in [k..1 by -1] do
+    b := br`basis[i];
+    deg := b`deg;
+    ramdeg := b`ramdeg;
+    bval := b`valuation;
+    resroot := b`resroot;
+    P := b`P;
+    xsnew := [car<basering(br : k:=i-1), Q, resfld> | ];
+    for x in xs do
+      c, v, u := Explode(x);
+      // assert Degree(c) lt deg;
+      for j in [0..Degree(c)] do
+        // write j = j0 + j1*ramdeg
+        // so the term is coeff * x^j0 * (x^ramdeg)^j0 ~ (x^j0) * (coeff * P^j1) * (resroot^j1)
+        // eventually we ignore all terms except those with the same j0, so we may divide out by the common factor x^j0 (and count this in the valuation)
+        // what's left is (coeff * P^j1) from the basis below
+        // and resroot^j1 which we accumulate into the residue class
+        j0 := j mod ramdeg;
+        j1 := j div ramdeg;
+        Append(~xsnew, <Coefficient(c, j) * P^j1, v + j0*bval, u * resroot^j1>);
+      end for;
+    end for;
+    xs := xsnew;
+  end for;
+  // now include the coefficient
+  xs := [car<Booleans(), Q, resfld> |
+    <ok, wv + v, wu * u>
+    where wu := br`resfield ! (ok select ShiftValuation(c, -wv) else 0)
+    : x in xs
+    | wv lt OO
+    where wv := mval_wval(mv)
+    where ok := mval_is_exact(mv)
+    where mv := mval_make_FldPadElt(c)
+    where c, v, u := Explode(x)
+  ];
+  // check the valuation is high enough
+  if exists{x : x in xs | x[1] and x[2] lt val} then
+    error "val too low";
+  elif exists{x : x in xs | (not x[1]) and x[2] le val} then
+    return NULL;
+  else
+    assert forall{x : x in xs | (x[2] gt val) or (x[2] eq val and x[1])};
+    return mb_make(&+[resfld | x[3] : x in xs | x[2] eq val]);
+  end if;
+end function;
+
+// an element P of basering(br : k:=k) with valuation val
+// also an element Pinv with valuation -val
+// also a unit Pinvres of resfield(br : k:=k) so that P*Pinv~Pinvres
+function elt_with_valuation(br, val : k:=#br`basis)
+  assert IsDivisibleBy(absramdeg(br : k:=k), Denominator(val));
+  P := basering(br : k:=k) ! 1;
+  Pinv := basering(br : k:=k) ! 1;
+  Pinvres := resfield(br : k:=k) ! 1;
+  valrem := val;
+  for i in [k..1 by -1] do
+    b := br`basis[i];
+    valrem, j := reduce_rational(valrem, b`valuation);
+    m := Ceiling(j / b`ramdeg);
+    // x^j * (x^(ramdeg * m - j) * Pinv^m) ~ resroot2^m
+    x := basering(br : k:=i) ! [0, 1];
+    P := base_mul_reduce(br, P, base_pow_reduce(br, x, j : k:=k) : k:=k);
+    Pinv := base_prod_reduce(br, [Pinv, base_pow_reduce(br, x, b`ramdeg*m-j : k:=k), base_pow_reduce(br, b`Pinv, m : k:=k)] : k:=k);
+    // P := base_reduce(br, P * x^j : k:=k);
+    // Pinv := base_reduce(br, Pinv * x^(b`ramdeg*m-j) * b`Pinv^m : k:=k);
+    Pinvres *:= b`resroot2^m;
+  end for;
+  valrem := Z ! valrem;
+  P := base_mul_reduce(br, P, ShiftValuation(br`basefield ! 1, valrem) : k:=k);
+  Pinv := base_mul_reduce(br, Pinv, ShiftValuation(br`basefield ! 1, -valrem) : k:=k);
+  assert (not mval_is_exact(mv)) or (mval_wval(mv) eq val) where mv := mvaluation(br, P : k:=k);
+  assert (not mval_is_exact(mv)) or (mval_wval(mv) eq -val) where mv := mvaluation(br, Pinv : k:=k);
+  return P, Pinv, Pinvres;
+end function;
+
+function elt_with_residue_class(br, res : k:=#br`basis)
+  if res eq 0 then
+    return basering(br : k:=k) ! 0;
+  end if;
+  xs := [car<resfield(br : k:=k), basering(br : k:=k)> | <res, 1>];
+  for i in [k..1 by -1] do
+    b := br`basis[i];
+    xsnew := [car<resfield(br : k:=i-1), basering(br : k:=k)> | ];
+    for x in xs do
+      cs := Eltseq(b`rescoeffsmap(x[1]));
+      assert #cs eq b`resdeg;
+      for j in [1..b`resdeg] do
+        if cs[j] ne 0 then
+          Append(~xsnew, <cs[j], base_mul_reduce(br, x[2], base_pow_reduce(br, b`resroot2x, j-1 : k:=k) : k:=k)>);
+        end if;
+      end for;
+    end for;
+    xs := xsnew;
+  end for;
+  ret := base_reduce(br, &+[basering(br : k:=k) | (br`basefield ! x[1]) * x[2] : x in xs] : k:=k);
+  mres := mb_residue_class(br, ret : k:=k);
+  assert mb_is_null(mres) or mb_value(mres) eq res;
+  return ret;
+end function;
+
+procedure push_branch(~st, br : next_xpol:=false, offset:=false, new_base:=false, slopes_done:=br`slopes_done, width:=br`width)
+  br`slopes_done := slopes_done;
+  br`width := width;
+  if next_xpol cmpne false then
+    br`on_pop := [*"next_xpol"*];
+  elif offset cmpne false then
+    br`on_pop := [*"offset", offset*];
+  elif new_base cmpne false then
+    br`on_pop := [*"new_base", new_base*];
+  end if;
+  Insert(~st`brs_todo, 1, br);
+end procedure;
+
+procedure push_done_branch(~st, br : irred:=false, precerr:=false, skip:=false)
+  if irred then
+    br`width := 1;
+    br`done := "irred";
+  elif precerr then
+    br`done := "precerr";
+  elif skip then
+    br`done := "skip";
+  else
+    assert false;
+  end if;
+  Append(~st`brs_done, br);
+end procedure;
+
+procedure br_set_xpolx(~br)
+  br`xpolx := expand(br`xpol, br);
+end procedure;
+
+procedure br_set_xpol(~br, xpol : merge:=false)
+  assert Precision(BaseRing(xpol)) lt Infinity();
+  if merge then
+    assert assigned br`xpol;
+    assert Degree(xpol) eq Degree(br`xpol);
+    ok, new_polring := ExistsCoveringStructure(Parent(xpol), Parent(br`xpol));
+    assert ok;
+    assert Precision(BaseRing(new_polring)) ge Precision(BaseRing(xpol));
+    assert Precision(BaseRing(new_polring)) ge Precision(BaseRing(br`xpol));
+    old_xpol := new_polring ! br`xpol;
+    new_xpol := new_polring ! xpol;
+    assert forall{i : i in [0..Degree(br`xpol)] | AbsolutePrecision(Coefficient(old_xpol, i)) ge AbsolutePrecision(Coefficient(br`xpol, i))};
+    assert forall{i : i in [0..Degree(xpol)] | AbsolutePrecision(Coefficient(new_xpol, i)) ge AbsolutePrecision(Coefficient(xpol, i))};
+    assert forall{i : i in [0..Degree(xpol)] | IsWeaklyEqual(Coefficient(new_xpol, i), Coefficient(old_xpol, i))};
+    br`xpol := new_polring ! [AbsolutePrecision(c0) gt AbsolutePrecision(c1) select c0 else c1 where c0:=Coefficient(old_xpol,i) where c1:=Coefficient(new_xpol,i) : i in [0..Degree(xpol)]];
+  else
+    if assigned br`xpol then
+      assert Precision(BaseRing(xpol)) ge Precision(BaseRing(br`xpol));
+      old_xpol := Parent(xpol) ! br`xpol;
+      assert Degree(old_xpol) eq Degree(br`xpol);
+      assert forall{i : i in [0..Degree(old_xpol)] | AbsolutePrecision(Coefficient(old_xpol, i)) ge AbsolutePrecision(Coefficient(br`xpol, i))};
+      assert Degree(xpol) eq Degree(old_xpol);
+      assert forall{i : i in [0..Degree(xpol)] | AbsolutePrecision(Coefficient(xpol, i)) ge AbsolutePrecision(Coefficient(old_xpol, i))};
+      assert forall{i : i in [0..Degree(xpol)] | IsWeaklyEqual(Coefficient(xpol, i), Coefficient(old_xpol, i))};
+    end if;
+    br`xpol := xpol;
+  end if;
+  if not assigned br`basefield then
+    assert #br`basis eq 0;
+    br`basefield := BaseRing(br`xpol);
+    br`polring := Parent(br`xpol);
+    br`offset := br`basefield ! br`offset;
+    // br`xpolx_pre := br`xpol;
+    // br`xpolx := Evaluate(br`xpolx_pre, br`polring ! [br`offset, 1]);
+  else
+    // basefield, polring
+    old_basefield := br`basefield;
+    old_polring := br`polring;
+    br`basefield := BaseRing(br`xpol);
+    br`polring := Parent(br`xpol);
+    pr := Precision(br`basefield); //pol_max_precision(br`xpol);
+    m := map<old_basefield -> br`basefield | x :-> WZERO(x) select br`basefield!0 else CHANGE_APR(br`basefield!x, VAL(x)+pr)>;
+    m2 := map<old_polring -> br`polring | f :-> br`polring ! [m(c) : c in Coefficients(f)]>;
+    // basis, xpolx, offset
+    old_basis := br`basis;
+    br`offset := m(br`offset);
+    br`basis := [];
+    // br`xpolx_pre := br`xpol;
+    // br`xpolx := Evaluate(br`xpolx_pre, br`polring ! [br`offset, 1]);
+    for i in [1..#old_basis] do
+      old_b := old_basis[i];
+      b := old_b;
+      b`basering := i eq 1 select br`polring else br`basis[i-1]`polring;
+      b`polring := PolynomialRing(b`basering);
+      AssignNames(~b`polring, [Sprintf("X%o", #br`basis+2)]);
+      b`P := m(old_b`P);
+      b`Pinv := m(old_b`Pinv);
+      b`resroot2x := (b`basering ! [0,1])^b`ramdeg * b`Pinv;
+      m3 := map<old_b`polring -> b`polring | f :-> b`polring ! [m2(c) : c in Coefficients(f)]>;
+      assert Degree(b`respol) eq b`resdeg;
+      assert Coefficient(b`respol, b`resdeg) eq 1;
+      b`polx := m2(old_b`polx);
+      assert Degree(b`polx) eq b`deg;
+      b`pol := flatten(br, b`polx);// bm2(old_b`pol);
+      assert Degree(b`pol) eq b`absdeg;
+      // b`pol := evaluate2(b`basering ! [elt_with_residue_class(br, c) : c in Coefficients(b`respol)], (b`basering ! [0,1])^b`ramdeg, b`P);
+      Append(~br`basis, b);
+      // br`xpolx_pre := br`xpolx;
+      // br`xpolx := b`polring ! in_terms_of(br`xpolx_pre, b`pol);
+      m := m2;
+      m2 := m3;
+      delete m3;
+    end for;
+  end if;
+  br_set_xpolx(~br);
+end procedure;
+
+procedure do_offset(~br, offset)
+  k := #br`basis;
+  offset := base_reduce(br, offset);
+  if k eq 0 then
+    br`offset +:= offset;
+    // br`xpolx := Evaluate(br`xpolx_pre, br`polring ! [br`offset, 1]);
+    // br`xpolx := Evaluate(br`xpolx_pre, br`polring ! [offset, 1]);
+  else
+    polx := br`basis[k]`polx - offset;
+    pol := base_flatten(br, polx);
+    // br`basis[k]`polx -:= offset;
+    assert Degree(polx) eq br`basis[k]`deg;
+    // br`basis[k]`pol -:= offsetx;
+    // br`basis[k]`pol := base_flatten(br, br`basis[k]`polx);
+    assert Degree(pol) eq br`basis[k]`absdeg;
+    br`basis[k]`polx := polx;
+    br`basis[k]`pol := pol;
+    // br`xpolx := polring(br) ! in_terms_of(br`xpolx_pre, br`basis[k]`pol);
+    // br`xpolx := pol_reduce(br, Evaluate(br`xpolx, polring(br) ! [offset, 1]));
+  end if;
+  br_set_xpolx(~br);
+end procedure;
+
+procedure pop_branch(~pass, ~st, ~br)
+  pass := false;
+  n := #st`brs_todo;
+  assert n gt 0;
+  br := st`brs_todo[n];
+  Prune(~st`brs_todo);
+  if assigned br`on_pop then
+    case br`on_pop[1]:
+    when "next_xpol":
+      // get the next xpol (in the state)
+      br`xpol_index +:= 1;
+      if br`xpol_index gt #st`xpols then
+        assert br`xpol_index eq #st`xpols + 1;
+        ok, xpol, xst := st`xpol_get(st`xpol_state);
+        if ok then
+          Append(~st`xpols, xpol);
+          st`xpol_state := xst;
+        else
+          push_done_branch(~st, br : precerr);
+          pass := true;
+          return;
+        end if;
+      end if;
+      // set it (in the branch)
+      br_set_xpol(~br, st`xpols[br`xpol_index]);
+    when "offset":
+      do_offset(~br, br`on_pop[2]);
+    when "new_base":
+      b := br`on_pop[2];
+      // basering, polring
+      b`basering := polring(br);
+      b`polring := PolynomialRing(b`basering);
+      AssignNames(~b`polring, [Sprintf("x%o", #br`basis+2)]);
+      // resfield, resroot, resroot2
+      b`resfield := ext<resfield(br) | b`resdeg>;
+      b`resroot := Roots(ChangeRing(b`respol, b`resfield))[1][1];
+      b`resroot2 := b`resroot * b`Pinvres;
+      b`resroot2x := (b`basering ! [0,1])^b`ramdeg * b`Pinv;
+      // abs*deg
+      b`absramdeg := absramdeg(br) * b`ramdeg;
+      b`absresdeg := absresdeg(br) * b`resdeg;
+      b`absdeg := absdeg(br) * b`deg;
+      // pol
+      assert Degree(b`respol) eq b`resdeg;
+      b`polx := pol_reduce(br, evaluate2(b`basering ! [elt_with_residue_class(br, c) : c in Coefficients(b`respol)], (b`basering ! [0,1])^b`ramdeg, b`P));
+      assert Degree(b`polx) eq b`deg;
+      b`pol := flatten(br, b`polx);
+      assert Degree(b`pol) eq b`absdeg;
+      // rescoeffsmap
+      b`rescoeffsmap := map<b`resfield -> V | x :-> m(x) * Uinv>
+        where Uinv:=U^-1
+        where U:=Matrix([V| m(b`resroot2^j) : j in [0..b`resdeg-1]])
+        where V,m:=VectorSpace(b`resfield, resfield(br));
+      // add the basis element then update the branch
+      Append(~br`basis, b);
+      // xpolx
+      // br`xpolx_pre := br`xpolx;
+      // br`xpolx := pol_reduce(br, polring(br) ! in_terms_of(br`xpolx_pre, b`pol));
+      br_set_xpolx(~br);
+      br`slopes_done := {};
+      // not_implemented(:msg:="new_base");
+    else
+      not_implemented(:msg:="on pop: " cat br`on_pop[1]);
+    end case;
+    // delete the instruction so that it doesn't get enacted twice
+    delete br`on_pop;
+  end if;
+end procedure;
+
+procedure factorize(~st : JustRoots:=false, DegreeMle:=0, DegreeGe:=1, Limit:=Infinity())
+  num_factors := 0;
+  while #st`brs_todo gt 0 do
+    vprint ExactpAdics_Factorization: Cputime(), "popping ...";
+    pop_branch(~pass, ~st, ~br);
+    if pass then continue; end if;
+    if not (
+      IsDivisibleBy(DegreeMle, absdeg(br))
+      and DegreeGe le absdeg(br) * br`width
+      and num_factors lt Limit
+    ) then
+      push_done_branch(~st, br : skip);
+      continue;
+    end if;
+    vprint ExactpAdics_Factorization, 2: Cputime(), "basis =", [b`pol : b in br`basis];
+    vprint ExactpAdics_Factorization, 2: Cputime(), "xpolx =", br`xpolx;
+    // compute the WEAK newton polygon (i.e. we don't necessarily know the valuations at the vertices precisely)
+    vprint ExactpAdics_Factorization: Cputime(), "newton polygon ...";
+    mvals := [mvaluation(br, c) : c in Coefficients(br`xpolx)];
+    np := NewtonPolygon([<i-1, v> : i in [1..#mvals] | v lt OO where v:=mval_wval(mvals[i])] : Faces:="Lower");
+    vertices := ChangeUniverse(Vertices(np), car<Z, Q>);
+    vprint ExactpAdics_Factorization, 2: Cputime(), "vertices =", vertices;
+    // the input must have exact zeros divided out of it already
+    assert #vertices gt 0;
+    assert vertices[1][1] eq 0;
+    // now consider each face in turn
+    retry := false;
+    slopes_done := br`slopes_done;
+    for i in [2..#vertices] do
+      vprint ExactpAdics_Factorization: Cputime(), "face", i-1, "...";
+      x0, y0 := Explode(vertices[i-1]);
+      x1, y1 := Explode(vertices[i]);
+      mval0 := mvals[x0+1];
+      mval1 := mvals[x1+1];
+      slope := (y1 - y0) / (x1 - x0);
+      // have we gone over the prescribed width?
+      if x0 ge br`width then
+        vprint ExactpAdics_Factorization: Cputime(), "overshot";
+        assert mval_is_exact(mval1) or x0 eq br`width;
+        break i;
+      end if;
+      // if the face is on [0,1], we have a liftable irreducible factor
+      if x0 eq 0 and x1 eq 1 and mval_is_exact(mval1) then
+        if slope notin slopes_done then
+          vprint ExactpAdics_Factorization: Cputime(), "liftable";
+          push_done_branch(~st, br : irred);
+          Include(~slopes_done, slope);
+          num_factors +:= 1;
+        else
+          vprint ExactpAdics_Factorization: Cputime(), "already done";
+        end if;
+        continue i;
+      end if;
+      // if we can't prove this is a face, we need to retry
+      if not ((mval_is_exact(mval0) or (x0 eq 0 and x1 eq 1)) and mval_is_exact(mval1)) then
+        vprint ExactpAdics_Factorization: Cputime(), "weak face";
+        assert slope notin slopes_done;
+        retry := true;
+        continue i;
+      end if;
+      // have we done this slope?
+      if slope in slopes_done then
+        vprint ExactpAdics_Factorization: Cputime(), "already done";
+        continue i;
+      end if;
+      // now we have a genuine face to branch on
+      vprint ExactpAdics_Factorization: Cputime(), "genuine face ...";
+      valuation := -slope;
+      h := Numerator(valuation);
+      e := Denominator(valuation);
+      if JustRoots and e ne 1 then
+        continue i;
+      end if;
+      ramdeg := xdiv(e, GCD(e, absramdeg(br)));
+      Pval := h / GCD(e, absramdeg(br));
+      assert Pval/ramdeg eq valuation;
+      d := xdiv(x1-x0, ramdeg);
+      P, Pinv, Pinvres := elt_with_valuation(br, Pval);
+      mb_respol := mb_reduce(Polynomial, [mb_residue_class(br, Coefficient(br`xpolx, x0+j*ramdeg)*P^j : val:=y0) : j in [0..d]]);
+      if mb_is_null(mb_respol) then
+        vprint ExactpAdics_Factorization: Cputime(), "weak residual polynomial";
+        retry := true;
+        continue i;
+      else
+        respol := mb_value(mb_respol);
+        assert Degree(respol) eq d;
+        assert Coefficient(respol, d) ne 0;
+        assert Coefficient(respol, 0) ne 0;
+        vprint ExactpAdics_Factorization, 2: Cputime(), "residual polynomial =", respol;
+      end if;
+      // if we get this far, we consider the face done
+      Include(~slopes_done, slope);
+      // consider each irreducible factor of respol
+      for resfac in Factorization(respol) do
+        vprint ExactpAdics_Factorization: Cputime(), "residual factor", resfac[1], "...";
+        resdeg := Degree(resfac[1]);
+        if JustRoots and resdeg ne 1 then
+          continue resfac;
+        end if;
+        deg := resdeg * ramdeg;
+        assert deg ge 1;
+        if deg eq 1 then
+          vprint ExactpAdics_Factorization: Cputime(), "offsetting";
+          offset := P*elt_with_residue_class(br, -Coefficient(resfac[1], 0)/Coefficient(resfac[1], 1));
+          vprint ExactpAdics_Factorization, 2: Cputime(), "offset =", offset;
+          vprint ExactpAdics_Factorization, 2: Cputime(), "width =", resfac[2];
+          push_branch(~st, br :
+            offset := offset,
+            width := resfac[2]
+          );
+        else
+          vprint ExactpAdics_Factorization: Cputime(), "extending basis";
+          vprint ExactpAdics_Factorization, 2: Cputime(), "respol =", resfac[1];
+          vprint ExactpAdics_Factorization, 2: Cputime(), "ramdeg =", ramdeg;
+          vprint ExactpAdics_Factorization, 2: Cputime(), "width =", resfac[2];
+          push_branch(~st, br :
+            new_base := rec<BASE | 
+              valuation := valuation,
+              ramdeg := ramdeg,
+              resdeg := resdeg,
+              deg := deg,
+              Pval := Pval,
+              P := P,
+              Pinv := Pinv,
+              Pinvres := Pinvres,
+              respol := resfac[1]
+            >,
+            width := resfac[2]
+          );
+        end if;
+      end for;
+    end for;
+    // retry
+    if retry then
+      vprint ExactpAdics_Factorization: Cputime(), "retry";
+      push_branch(~st, br : next_xpol, slopes_done:=slopes_done);
+    end if;
+  end while;
+end procedure;
+
+function basis_pol(br : k:=#br`basis)
+  return flatten(br, [0,1] : k:=k);
+end function;
+
+// function br_coeffs(br, f : k:=#br`basis)
+//   xs := [basering(br : k:=k) | f];
+//   for i in [k..1 by -1] do
+//     b := br`basis[i];
+//     xsnew := [basering(br : k:=i-1) | ];
+//     for x in xs do
+//       c := x mod b`polx;
+//       for j in [0..b`deg-1] do
+//         Append(~xsnew, Coefficient(c, j));
+//       end for;
+//     end for;
+//     xs := xsnew;
+//   end for;
+//   return xs;
+// end function;
+
+// function br_polynomial(br, xs : k:=#br`basis)
+//   assert #xs eq &*[Z| b`deg : b in br`basis[1..k]];
+//   xs := ChangeUniverse(xs, br`basefield);
+//   for i in [1..k] do
+//     xs := [basering(br : k:=i) | xs[i..i+deg-1] : i in [1..#xs-1 by deg]] where deg:=b`deg where b:=br`basis[i];
+//   end for;
+//   assert #xs eq 1;
+//   return xs[1];
+// end function;
+
+function mb_br_invmod(br, f)
+  f := basering(br) ! f;
+  k := #br`basis;
+  if k eq 0 then
+    return mb_make(1 / f);
+  end if;
+  m := br`basis[k]`pol;
+  d := Degree(m);
+  assert d eq absdeg(br);
+  rf := base_flatten(br, f) mod m;
+  x := Parent(rf) ! [0,1];
+  M := Matrix([[Coefficient(ff, j) : j in [0..d-1]] where ff := (x^i * rf) mod m : i in [0..d-1]]);
+  ok, Minv := IsInvertible(M);
+  if ok then
+    rfinv := Polynomial(Eltseq(Rows(Minv)[1])) mod m;
+    return mb_make(base_expand(rfinv, br));
+  else
+    return NULL;
+  end if;
+end function;
+
+function br_invmod(br, f)
+  return mb_value(mb_br_invmod(br, f));
+end function;
+
+function br_lift(br, xpol)
+  error if br`width ne 1, "not implemented: lift: width > 1";
+  br_set_xpol(~br, xpol : merge);
+  wv := mval_wval(mvaluation(br, Coefficient(br`xpolx, 0) : reduce));
+  while true do
+    c0 := Coefficient(br`xpolx, 0);
+    c1 := Coefficient(br`xpolx, 1);
+    if not (mval_is_exact(mvaluation(br, c0)) and mval_is_exact(mvaluation(br, c1))) then
+      return br;
+    end if;
+    ok, c1inv := mb_has_value(mb_br_invmod(br, c1));
+    if not ok then
+      return br;
+    end if;
+    off := base_reduce(br, -c0 * c1inv);
+    brnew := br;
+    do_offset(~brnew, off);
+    wvnew := mval_wval(mvaluation(brnew, Coefficient(brnew`xpolx, 0) : reduce));
+    if wvnew le wv then
+      return br;
+    else
+      wv := wvnew;
+      br := brnew;
+    end if;
+  end while;
+end function;
+
+procedure add_flatten_errs(~br)
+  deg := absdeg(br);
+  idxss := CartesianProduct([PowerSequence(Z) | [0..b`deg-1] : b in br`basis]);
+  assert #idxss eq deg;
+  basis_vals := [Q | b`valuation : b in br`basis];
+  basis_pols := [br`polring | basis_pol(br : k:=i-1) : i in [1..#br`basis]];
+  vals := [Q | dot_product(Q, basis_vals, idxs) : idxs in idxss];
+  pols := [br`polring | mdot_product(br`polring, basis_pols, idxs) : idxs in idxss];
+  assert forall{pol : pol in pols | Degree(pol) lt deg};
+  br`flatten_errs := [Q | Minimum([VAL(c) - vals[j] : j in [1..deg] | VAL(c) lt OO where c := Coefficient(pols[j], i)]) : i in [0..deg-1]];
+end procedure;
+
+function mb_approximate_factor(br)
+  xfac := basis_pol(br);
+  deg := absdeg(br);
+  mvals := [mvaluation(br, c) : c in Coefficients(br`xpolx)];
+  np := NewtonPolygon([<i-1, v> : i in [1..#mvals] | v lt OO where v:=mval_wval(mvals[i])] : Faces:="Lower");
+  vertices := ChangeUniverse(Vertices(np), car<Z, Q>);
+  assert Degree(xfac) eq deg;
+  assert not WZERO(Coefficient(xfac, deg));
+  vlc := VAL(Coefficient(xfac, deg));
+  if not exists(k){k : k in [1..#vertices] | vertices[k][1] eq br`width} then
+    return NULL;
+  end if;
+  if k eq 1 then
+    not_implemented(:msg:="zero roots");
+  else
+    s0 := - (vertices[k][2] - vertices[k-1][2]) / (vertices[k][1] - vertices[k-1][1]);
+  end if;
+  FUDGE := (e eq 1 select 0 else 2*e) where e:=AbsoluteRamificationDegree(BaseRing(xfac));
+  prs := [Floor(vlc + err + s0 - FUDGE) : err in br`flatten_errs];
+  fac := Parent(xfac) ! [i lt deg select CAP_APR(Coefficient(xfac, i), prs[i+1]) else Coefficient(xfac, i) : i in [0..deg]];
+  return mb_make(fac);
+end function;
+
+function approximate_factor(br)
+  return mb_value(mb_approximate_factor(br));
+end function;
+
+function mb_eisenstein_poly(br)
+  assert br`width eq 1;
+  assert br`done eq "irred";
+  assert absresdeg(br) eq 1;
+  deg := absdeg(br);
+  ok, xfac := mb_has_value(mb_approximate_factor(br));
+  if not ok then return NULL; end if;
+  assert Degree(xfac) eq deg;
+  pi := base_flatten(br, elt_with_valuation(br, 1/deg));
+  pis := [Parent(pi)| case<i | 0:1, 1:pi, default:Self(i)*pi> mod xfac : i in [0..deg]];
+  M := Matrix([[Coefficient(pis[i+1], j) : j in [0..deg-1]] : i in [0..deg-1]]);
+  V := Vector([Coefficient(pis[deg+1], j) : j in [0..deg-1]]);
+  // M := Matrix([br_coeffs(br, pi^i) : i in [0..deg-1]]);
+  // V := Vector(br_coeffs(br, pi^deg));
+  // ok, C := IsConsistent(M, V);
+  // if not ok then
+    ok, Minv := IsInvertible(M);
+    if not ok then
+      return NULL;
+    end if;
+    C := V * Minv;
+  // end if;
+  assert ok;
+  epol := Polynomial([j eq deg select 1 else -C[j+1] : j in [0..deg]]);
+  return mb_make(epol);
+end function;
+
+function irred_done_branches(st : TotalDegree:=false)
+  assert #st`brs_todo eq 0;
+  error if exists{br : br in st`brs_done | br`done eq "precerr"}, "precision error";
+  assert forall{br : br in st`brs_done | br`done in {"irred", "skip"}};
+  assert TotalDegree cmpeq false or TotalDegree eq &+[Z| absdeg(br) * br`width : br in st`brs_done];
+  return [br : br in st`brs_done | br`done eq "irred"];
+end function;
+
+// factorization certificate
+CERT := recformat<
+  F,           // residue degree
+  E,           // ramification degree
+  Rho,         // Rho(x) is a residue generator
+  Pi,          // Pi(x) is a uniformizer
+  Extension,   // the extension
+  InternalData // internal: the BRANCH yielding the factor
+>;
+
+function remove_zeros(f)
+  n := 0;
+  while n lt Degree(f) and Valuation(Coefficient(f, n)) eq Infinity() do
+    n +:= 1;
+  end while;
+  if n eq 0 then
+    return f, n;
+  else
+    return Parent(f) ! Coefficients(f)[n+1..Degree(f)+1], n;
+  end if;
+end function;
+
+/// Our implementation of an OM factorization algorithm for Magma's builtin p-adics.
+/// 
+///param Proof:=true When true, the output is proven.
+///param Certificates:=false When true, implies `Proof:=true` and also outputs certificates.
+///param Extensions:=false When true, implies `Certificates:=true` and certificates include extensions.
+///param InternalData:=false When true, implies `Certificates:=true` and certificates include the state of the branch leading to this factor.
+///param Lift:=true When false, does not lift the result to full precision. Hence faster, but gives less precise results.
+///param DegreeMle:=0 Only returns factors whose degree divides this, i.e. the degree is "multiplicatively less than" this.
+///param DegreeGe:=1 Only returns factors whose degree is at least this.
+///param Limit A bound on the number of factors returned.
+intrinsic ExactpAdics_Factorization(f :: RngUPolElt[FldPad] : Proof:=true, Certificates:=false, Extensions:=false, InternalData:=false, Lift:=true, DegreeMle:=0, DegreeGe:=1, Limit:=Infinity()) -> [], FldPadElt, []
+  {"}
+  Certificates or:= Extensions;
+  Certificates or:= InternalData;
+  Proof or:= Certificates;
+  R := Parent(f);
+  K := BaseRing(R);
+  f, nzeros := remove_zeros(f);
+  if nzeros gt 0 then
+    zero_facs := [<R![0,1],nzeros>];
+    zero_certs := [rec<CERT | F:=1, E:=1, Rho:=R!1, Pi:=R!UniformizingElement(K), Extension:=K>];
+  else
+    zero_facs := [];
+    zero_certs := [];
+  end if;
+  error if Extensions and Precision(K) eq Infinity(), "Extensions only implemented over bounded precision p-adic fields";
+  K2 := Precision(K) eq Infinity() select ChangePrecision(K, pol_max_precision(f)) else K;
+  deg := Degree(f);
+  st := state_make(ChangeRing(f, K2));
+  factorize(~st : DegreeMle:=DegreeMle, DegreeGe:=DegreeGe, Limit:=Limit);
+  lc := LeadingCoefficient(f);
+  brs := irred_done_branches(st : TotalDegree:=deg);
+  if Proof then
+    for i in [1..#brs] do
+      add_flatten_errs(~brs[i]);
+    end for;
+    if #brs eq 1 and absdeg(brs[1]) eq deg then
+      facs := [<f / lc, 1>];
+    else
+      facs := [];
+      for i in [1..#brs] do
+        br := Lift select br_lift(brs[i], f) else brs[i];
+        xfac := approximate_factor(br);
+        Append(~facs, <R!xfac, 1>);
+      end for;
+    end if;
+  else
+    not_implemented(:msg:="Proof:=false");
+    facs := [];
+  end if;
+  if Certificates then
+    certs := [rec<CERT
+      | F:=absresdeg(br)
+      , E:=absramdeg(br)
+      , Rho:=R!base_flatten(br, elt_with_residue_class(br, NormalElement(resfield(br), br`resfield)))
+      , Pi:=R!base_flatten(br, elt_with_valuation(br, 1/absramdeg(br)))
+      , InternalData:=br
+      >
+      : br in brs
+    ];
+    if Extensions then
+      // we compute extensions by factoring the polynomial again over the unramified extension of the right degree
+      // TODO: this seems like the wrong thing to do, we should be able to alter the basis as if we had worked over the unramified extension from the beginning
+      for i in [1..#certs] do
+        if certs[i]`F eq 1 then
+          if certs[i]`E eq 1 then
+            certs[i]`Extension := K;
+          else
+            br := br_lift(certs[i]`InternalData, f);
+            ok, epol := mb_has_value(mb_eisenstein_poly(br));
+            if ok and forall{c : c in Coefficients(epol) | APR(c) ge 2} and eisensteinPolyDefinesUniqueExtension(epol) then
+              certs[i]`Extension := TotallyRamifiedExtension(K, R ! [K| IsWeaklyZero(c) select 0 else ChangePrecision(c,Precision(K)) : c in Coefficients(epol)]);
+            else
+              error "precision error getting extension";
+            end if;
+          end if;
+        else
+          U := UnramifiedExtension(K, certs[i]`F);
+          ufacs, _, ucerts := ExactpAdics_Factorization(ChangeRing(facs[i][1], U) : Extensions, Limit:=1);
+          assert #ufacs eq 1 /*certs[i]`F*/;
+          assert forall{c : c in ucerts | c`F eq 1 and c`E eq certs[i]`E};
+          certs[i]`Extension := ucerts[1]`Extension;
+        end if;
+        assert Degree(certs[i]`Extension, K) eq Degree(facs[i][1]);
+        assert InertiaDegree(certs[i]`Extension, K) eq certs[i]`F;
+        assert RamificationDegree(certs[i]`Extension, K) eq certs[i]`E;
+        assert2 #ExactpAdics_Roots(ChangeRing(f, certs[i]`Extension) : Lift:=false) gt 0;
+      end for;
+    end if;
+    if not InternalData then
+      for i in [1..#certs] do
+        delete certs[i]`InternalData;
+      end for;
+    end if;
+    return zero_facs cat facs, lc, zero_certs cat certs;
+  else
+    return zero_facs cat facs, lc, _;
+  end if;  
+end intrinsic;
+
+/// Our implementation of an OM factorization algorithm, specialised to root-finding, for Magma's builtin p-adics.
+/// 
+///param Lift:=true When false, does not lift the result to full precision. Hence faster, but gives less precise results.
+intrinsic ExactpAdics_Roots(f :: RngUPolElt[FldPad] : Lift:=true) -> []
+  {"}
+  R := Parent(f);
+  K := BaseRing(R);
+  f, nzeros := remove_zeros(f);
+  K2 := Precision(K) eq Infinity() select ChangePrecision(K, pol_max_precision(f)) else K;
+  st := state_make(ChangeRing(f, K2));
+  factorize(~st : JustRoots);
+  brs := irred_done_branches(st);
+  assert forall{br : br in brs | (absdeg(br) eq 1) and (#br`basis eq 0)};
+  rs := nzeros eq 0 select [] else [<K!0,nzeros>];
+  for i in [1..#brs] do
+    add_flatten_errs(~brs[i]);
+    br := Lift select br_lift(brs[i], f) else brs[i];
+    xfac := approximate_factor(br);
+    assert Degree(xfac) eq 1;
+    Append(~rs, <K!(-Coefficient(xfac,0)/Coefficient(xfac,1)), 1>);
+  end for;
+  return rs;
+end intrinsic;
+
