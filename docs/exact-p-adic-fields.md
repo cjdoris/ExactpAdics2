@@ -154,7 +154,7 @@ The completion of `F` at `p` as an exact `p`-adic field. Also returns the embedd
 An exact p-adic field isomorphic to `xF`.
 
 **Parameters**
-- `CheckUnique`
+- `CheckUnique := true`: When `true`, checks that the input is precise enough to determine the field up to isomorphism.
 
 <a id="ExactpAdicField-3"></a><a id="ExactpAdicField--FldPad--etc"></a><a id="ExactpAdicField--FldPad--FldPad--FldPadExact"></a>
 > **ExactpAdicField** (xE :: *FldPad*, xF :: *FldPad*, F :: *FldPadExact*)
@@ -163,10 +163,10 @@ An exact p-adic field isomorphic to `xF`.
 > {:.ret}
 {:.intrinsic}
 
-Given an extension `xE`/`xF`, such that `xF` is parallel-coercible to and from any approximation field of `F`, returns E such that E/`F` is isomorphic to `xE`/`xF`. Note that ext<`F` | `xE`, `xF`> is shorthand for this.
+Given an extension `xE/xF`, such that `xF` is parallel-coercible to and from any approximation field of `F`, returns E such that `E/F` is isomorphic to `xE/xF`. Note that `ext<F | xE, xF>` is shorthand for this.
 
 **Parameters**
-- `CheckUnique`
+- `CheckUnique := true`: When `true`, checks that the input is precise enough to determine the field up to isomorphism.
 
 ## Creation of p-adic numbers
 {:#creation-of-p-adic-numbers}
@@ -174,24 +174,28 @@ Given an extension `xE`/`xF`, such that `xF` is parallel-coercible to and from a
 ### Distinguished elements
 {:#distinguished-elements}
 
-<a id="Zero"></a><a id="Zero--FldPadExact"></a>
+<a id="Zero"></a><a id="Zero--FldPadExact"></a><a id="One"></a><a id="One--FldPadExact"></a>
 > **Zero** (F :: *FldPadExact*)
 > 
-> -> *FldPadExactElt*
-> {:.ret}
-{:.intrinsic}
-
-The zero element of `F`.
-
-
-<a id="One"></a><a id="One--FldPadExact"></a>
 > **One** (F :: *FldPadExact*)
 > 
 > -> *FldPadExactElt*
 > {:.ret}
 {:.intrinsic}
 
-The one element of `F`.
+Zero and one.
+
+
+
+
+<a id="Generator"></a><a id="Generator--FldPadExact"></a>
+> **Generator** (F :: *FldPadExact*)
+> 
+> -> *FldPadExactElt*
+> {:.ret}
+{:.intrinsic}
+
+A generator of `F`.
 
 
 <a id="UniformizingElement"></a><a id="UniformizingElement--FldPadExact"></a>
@@ -214,18 +218,22 @@ A uniformizing element of `F`.
 A residue generator of `F`. That is, an element whose residue class generates the residue class field over its prime subfield.
 
 
-<a id="Generator"></a><a id="Generator--FldPadExact"></a>
-> **Generator** (F :: *FldPadExact*)
+<a id="AbsoluteGenerator"></a><a id="AbsoluteGenerator--FldPadExact"></a>
+> **AbsoluteGenerator** (F :: *FldPadExact*)
 > 
 > -> *FldPadExactElt*
 > {:.ret}
 {:.intrinsic}
 
-A generator of `F`.
+A generator of `F` over its prime subfield.
+
+If `F` is absolutely unramified, this will be a residue generator. If absolutely totally ramified, this will be a uniformizing element. Otherwise, it will be the sum of the two.
 
 
 ### From coefficients
 {:#from-coefficients}
+
+*Not implemented.*
 
 ### Coercion
 {:#coercion}
@@ -249,6 +257,8 @@ True if `X` is coercible to `F`. If so, also returns the coerced element.
 
 ### Random
 {:#random}
+
+*Not implemented.*
 
 ## Basic operations
 {:#basic-operations}
@@ -293,17 +303,7 @@ The valuation of `x`. If `x` is zero, this will hang.
 True if `x` is nonzero. If so, returns an epoch in which the approximation is nonzero.
 
 **Parameters**
-- `Minimize`
-
-<a id="IsDefinitelyZero"></a><a id="IsDefinitelyZero--FldPadExactElt"></a>
-> **IsDefinitelyZero** (x :: *FldPadExactElt*)
-> 
-> -> *BoolElt*
-> {:.ret}
-{:.intrinsic}
-
-True if `x` is definitely zero. That is, it is weakly zero and has infinite absolute precision.
-
+- `Minimize := false`: When `true`, the returned epoch is minimal.
 
 <a id="Eltseq"></a><a id="Eltseq--FldPadExactElt"></a>
 > **Eltseq** (x :: *FldPadExactElt*)
@@ -468,6 +468,8 @@ Compares the valuation of `x` with the valuation of `y`.
 ### Smallest and closest
 {:#smallest-and-closest}
 
+*Not implemented.*
+
 ## Extensions
 {:#extensions-2}
 
@@ -619,7 +621,7 @@ The absolute ramification degree of `F`.
 > {:.ret}
 {:.intrinsic}
 
-True if `E` is unramified over F or its base field. That is, the ramification degree is 1.
+True if `E` is unramified over `F` or its base field. That is, the ramification degree is 1.
 
 
 
@@ -633,7 +635,7 @@ True if `E` is unramified over F or its base field. That is, the ramification de
 > {:.ret}
 {:.intrinsic}
 
-True if `E` is ramified over F or its base field. That is, the ramification degree is not 1.
+True if `E` is ramified over `F` or its base field. That is, the ramification degree is not 1.
 
 
 
@@ -647,7 +649,7 @@ True if `E` is ramified over F or its base field. That is, the ramification degr
 > {:.ret}
 {:.intrinsic}
 
-True if `E` is totally ramified over F or its base field. That is, the inertia degree is 1.
+True if `E` is totally ramified over `F` or its base field. That is, the inertia degree is 1.
 
 
 
@@ -661,7 +663,7 @@ True if `E` is totally ramified over F or its base field. That is, the inertia d
 > {:.ret}
 {:.intrinsic}
 
-True if `E` is tamely ramified over F or its base field. That is, the ramification degree is indivisible by `p`.
+True if `E` is tamely ramified over `F` or its base field. That is, the ramification degree is indivisible by `p`.
 
 
 
@@ -675,7 +677,7 @@ True if `E` is tamely ramified over F or its base field. That is, the ramificati
 > {:.ret}
 {:.intrinsic}
 
-True if `E` is wildly ramified over F or its base field. That is, the ramification degree is divisible by `p`.
+True if `E` is wildly ramified over `F` or its base field. That is, the ramification degree is divisible by `p`.
 
 
 
@@ -689,7 +691,7 @@ True if `E` is wildly ramified over F or its base field. That is, the ramificati
 > {:.ret}
 {:.intrinsic}
 
-True if `E` is totally wildly ramified over F or its base field. That is, the inertia degree is 1 and the ramification degree is a power of `p`.
+True if `E` is totally wildly ramified over `F` or its base field. That is, the inertia degree is 1 and the ramification degree is a power of `p`.
 
 
 
@@ -697,8 +699,12 @@ True if `E` is totally wildly ramified over F or its base field. That is, the in
 ### Printing
 {:#printing}
 
+*Not implemented.*
+
 ### Standard form
 {:#standard-form}
+
+*Not implemented.*
 
 ## Residue class field
 {:#residue-class-field}
@@ -712,7 +718,7 @@ True if `E` is totally wildly ramified over F or its base field. That is, the in
 
 The residue class field `FF` of `F`, and the quotient map from `F` to `FF`.
 
-Note that the quotient map has an inverse whose approximations always have absolute precision 1, that is, the precision does not increase with epoch. Use `WeakApproximation` to choose a representative to infinite precision.
+Note that the quotient map has an inverse whose approximations always have absolute precision 1, that is, the precision does not increase with epoch. Use [`WeakApproximation`](#WeakApproximation--FldPadExactElt) to choose a representative to infinite precision.
 
 
 <a id="ResidueClass"></a><a id="ResidueClass--FldPadExactElt"></a>
@@ -723,132 +729,6 @@ Note that the quotient map has an inverse whose approximations always have absol
 {:.intrinsic}
 
 The residue class of `x`.
-
-
-## Internals
-{:#internals}
-
-### Approximations
-{:#approximations}
-
-<a id="WeakValuation"></a><a id="WeakValuation--FldPadExactElt"></a>
-> **WeakValuation** (x :: *FldPadExactElt*)
-> 
-> -> *ValFldPadExactElt*
-> {:.ret}
-{:.intrinsic}
-
-The weak valuation of `x`.
-
-
-<a id="AbsolutePrecision"></a><a id="AbsolutePrecision--FldPadExactElt"></a>
-> **AbsolutePrecision** (x :: *FldPadExactElt*)
-> 
-> -> *ValFldPadExactElt*
-> {:.ret}
-{:.intrinsic}
-
-The weak valuation of `x`.
-
-
-<a id="IsWeaklyZero"></a><a id="IsWeaklyZero--FldPadExactElt"></a>
-> **IsWeaklyZero** (x :: *FldPadExactElt*)
-> 
-> -> *BoolElt*
-> {:.ret}
-{:.intrinsic}
-
-True if `x` is weakly zero.
-
-
-<a id="WeakApproximation"></a><a id="WeakApproximation--FldPadExactElt"></a>
-> **WeakApproximation** (x :: *FldPadExactElt*)
-> 
-> -> *FldPadExactElt*
-> {:.ret}
-{:.intrinsic}
-
-An element weakly equal to `x` at its current precision.
-
-
-<a id="EnsureAllApproximationsNonzero"></a><a id="EnsureAllApproximationsNonzero--FldPadExactElt"></a>
-> **EnsureAllApproximationsNonzero** (x :: *FldPadExactElt*)
-{:.intrinsic}
-
-Ensures that all approximations of `x` are non-zero.
-
-
-### ExtFldPadExact
-{:#extfldpadexact}
-
-
-This type represents an extension of p-adic fields. It is the second return value of `IsExtensionOf`, and each field caches the extensions of which it is the top field. It can be used to cache information about an extension, such as its degree.
-
-For most intrinsics which take two fields forming an extension, there is an alternative form taking a single extension.
-
-<a id="/-2"></a><a id="/--FldPadExact--etc"></a><a id="/--FldPadExact--FldPadExact"></a>
-> **\'/\'** (E :: *FldPadExact*, F :: *FldPadExact*)
-> 
-> -> *ExtFldPadExact*
-> {:.ret}
-{:.intrinsic}
-
-The extension `E/F`.
-
-
-<a id="Description"></a><a id="Description--ExtFldPadExact"></a>
-> **Description** (X :: *ExtFldPadExact*)
-> 
-> -> *MonStgElt*
-> {:.ret}
-{:.intrinsic}
-
-A string describing the extension.
-
-
-**Parameters**
-- `BaseName`: If given, this is used to describe the base field. Otherwise, the base field is not described.
-
-<a id="TopField"></a><a id="TopField--ExtFldPadExact"></a>
-> **TopField** (X :: *ExtFldPadExact*)
-> 
-> -> *FldPadExact*
-> {:.ret}
-{:.intrinsic}
-
-The top field of the extension.
-
-
-<a id="BaseField-2"></a><a id="BaseField--ExtFldPadExact"></a>
-> **BaseField** (X :: *ExtFldPadExact*)
-> 
-> -> *FldPadExact*
-> {:.ret}
-{:.intrinsic}
-
-The base field of the extension.
-
-
-<a id="Tower"></a><a id="Tower--ExtFldPadExact"></a>
-> **Tower** (X :: *ExtFldPadExact*)
-> 
-> -> []
-> {:.ret}
-{:.intrinsic}
-
-The tower of intermediate fields.
-
-Its length is at least 1. The first entry is the base field, the last entry is the top field, and each entry is the base field of the next.
-
-
-<a id="Tower0"></a><a id="Tower0--ExtFldPadExact"></a>
-> **Tower0** (X :: *ExtFldPadExact*)
-> 
-> -> []
-> {:.ret}
-{:.intrinsic}
-
-Same as `Tower` but with the first entry (the base field) omitted.
 
 
 ## Ramification polynomials and polygons
@@ -1161,7 +1041,7 @@ The domain of `h`.
 The codomain of `h`.
 
 
-<a id="BaseField-3"></a><a id="BaseField--HomFldPadExact"></a>
+<a id="BaseField-2"></a><a id="BaseField--HomFldPadExact"></a>
 > **BaseField** (h :: *HomFldPadExact*)
 > 
 > -> *FldPadExact*
@@ -1247,13 +1127,139 @@ Composition, such that `x @ (h1 * h2) = x @ h1 @ h2`.
 The automorphism group of `E/F` as a permutation group, and the map from the group to the set of automorphisms.
 
 
-<a id="AutomorphismGroup-2"></a><a id="AutomorphismGroup--ExtFldPadExact"></a>
-> **AutomorphismGroup** (X :: *ExtFldPadExact*)
+## Internals
+{:#internals}
+
+### Approximations
+{:#approximations}
+
+<a id="WeakValuation"></a><a id="WeakValuation--FldPadExactElt"></a>
+> **WeakValuation** (x :: *FldPadExactElt*)
 > 
-> -> *GrpPerm*, Any
+> -> *ValFldPadExactElt*
 > {:.ret}
 {:.intrinsic}
 
-The automorphism group of `X` as a permutation group, and the map from the group to the set of automorphisms.
+The weak valuation of `x`.
+
+
+<a id="AbsolutePrecision"></a><a id="AbsolutePrecision--FldPadExactElt"></a>
+> **AbsolutePrecision** (x :: *FldPadExactElt*)
+> 
+> -> *ValFldPadExactElt*
+> {:.ret}
+{:.intrinsic}
+
+The absolute precision of `x`.
+
+
+<a id="IsWeaklyZero"></a><a id="IsWeaklyZero--FldPadExactElt"></a>
+> **IsWeaklyZero** (x :: *FldPadExactElt*)
+> 
+> -> *BoolElt*
+> {:.ret}
+{:.intrinsic}
+
+True if `x` is weakly zero.
+
+
+<a id="IsDefinitelyZero"></a><a id="IsDefinitelyZero--FldPadExactElt"></a>
+> **IsDefinitelyZero** (x :: *FldPadExactElt*)
+> 
+> -> *BoolElt*
+> {:.ret}
+{:.intrinsic}
+
+True if `x` is definitely zero. That is, it is weakly zero and has infinite absolute precision.
+
+
+<a id="WeakApproximation"></a><a id="WeakApproximation--FldPadExactElt"></a>
+> **WeakApproximation** (x :: *FldPadExactElt*)
+> 
+> -> *FldPadExactElt*
+> {:.ret}
+{:.intrinsic}
+
+An element weakly equal to `x` at its current precision.
+
+
+<a id="EnsureAllApproximationsNonzero"></a><a id="EnsureAllApproximationsNonzero--FldPadExactElt"></a>
+> **EnsureAllApproximationsNonzero** (x :: *FldPadExactElt*)
+{:.intrinsic}
+
+Ensures that all approximations of `x` are non-zero.
+
+
+### ExtFldPadExact
+{:#extfldpadexact}
+
+
+This type represents an extension of p-adic fields. It is the second return value of [`IsExtensionOf`](#IsExtensionOf), and each field caches the extensions of which it is the top field. It can be used to cache information about an extension, such as its degree.
+
+For most intrinsics which take two fields forming an extension, there is an alternative form taking a single extension.
+
+<a id="/-2"></a><a id="/--FldPadExact--etc"></a><a id="/--FldPadExact--FldPadExact"></a>
+> **\'/\'** (E :: *FldPadExact*, F :: *FldPadExact*)
+> 
+> -> *ExtFldPadExact*
+> {:.ret}
+{:.intrinsic}
+
+The extension `E/F`.
+
+
+<a id="Description"></a><a id="Description--ExtFldPadExact"></a>
+> **Description** (X :: *ExtFldPadExact*)
+> 
+> -> *MonStgElt*
+> {:.ret}
+{:.intrinsic}
+
+A string describing the extension.
+
+
+**Parameters**
+- `BaseName`: If given, this is used to describe the base field. Otherwise, the base field is not described.
+
+<a id="TopField"></a><a id="TopField--ExtFldPadExact"></a>
+> **TopField** (X :: *ExtFldPadExact*)
+> 
+> -> *FldPadExact*
+> {:.ret}
+{:.intrinsic}
+
+The top field of the extension.
+
+
+<a id="BaseField-3"></a><a id="BaseField--ExtFldPadExact"></a>
+> **BaseField** (X :: *ExtFldPadExact*)
+> 
+> -> *FldPadExact*
+> {:.ret}
+{:.intrinsic}
+
+The base field of the extension.
+
+
+<a id="Tower"></a><a id="Tower--ExtFldPadExact"></a>
+> **Tower** (X :: *ExtFldPadExact*)
+> 
+> -> []
+> {:.ret}
+{:.intrinsic}
+
+The tower of intermediate fields.
+
+Its length is at least 1. The first entry is the base field, the last entry is the top field, and each entry is the base field of the next.
+
+
+<a id="Tower0"></a><a id="Tower0--ExtFldPadExact"></a>
+> **Tower0** (X :: *ExtFldPadExact*)
+> 
+> -> []
+> {:.ret}
+{:.intrinsic}
+
+Same as `Tower` but with the first entry (the base field) omitted.
 
 

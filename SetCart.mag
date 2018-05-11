@@ -13,7 +13,7 @@ declare attributes Tup_PadExact
   , to_sequence
   ;
 
-///## Creation of cartesian products
+///### Creation of cartesian products
 
 intrinsic ExactpAdics_CartesianProduct(components :: Tup) -> SetCart_PadExact
   {The cartesian product of the components.}
@@ -61,8 +61,10 @@ intrinsic InterpolateEpochs(T :: Tup_PadExact, n1 :: RngIntElt, n2 :: RngIntElt,
   return [* Parent(T)`approximations[n] ! <cs[i][n-n1] : i in [1..#T]> : n in [n1+1..n2-1] *];
 end intrinsic;
 
-///## Creation of tuples
+///### Creation of tuples
 
+/// We can coerce the following to an exact tuple:
+/// - A tuple or exact tuple whose entries are coercible to the components of the cartesian product.
 intrinsic IsCoercible(C :: SetCart_PadExact, X) -> BoolElt, .
   {True if X is coercible to an element of C.}
   return false, "wrong type";
@@ -98,7 +100,7 @@ intrinsic IsCoercible(C :: SetCart_PadExact, X :: Tup) -> BoolElt, .
   return true, T;
 end intrinsic;
 
-///## Basic operations
+///### Basic operations
 
 intrinsic NumberOfComponents(C :: SetCart_PadExact) -> RngIntElt
   {The number of components of C.}

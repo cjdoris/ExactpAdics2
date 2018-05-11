@@ -7,8 +7,8 @@
 * [Basic operations on rings](#basic-operations-on-rings)
 * [Creation of polynomials](#creation-of-polynomials)
 * [Basic operations on polynomials](#basic-operations-on-polynomials)
-* [Approximation](#approximation)
-* [Printing](#printing)
+* [Internals](#internals)
+  * [Approximation](#approximation)
 * [Hensel lifting](#hensel-lifting)
 
 ## Creation of rings
@@ -137,7 +137,31 @@ True if `f` is definitely a monomial (i.e. has one term). If so, also returns it
 The exponents of `m`, which must be a monomial.
 
 
-## Approximation
+## Hensel lifting
+{:#hensel-lifting}
+
+<a id="IsHenselLiftable"></a><a id="IsHenselLiftable--seq-RngMPolElt_FldPadExact--etc"></a><a id="IsHenselLiftable--seq-RngMPolElt_FldPadExact--seq-FldPadExactElt"></a>
+> **IsHenselLiftable** (fs :: [*RngMPolElt_FldPadExact*], xs :: [*FldPadExactElt*])
+> 
+> -> *BoolElt*, []
+> {:.ret}
+{:.intrinsic}
+
+True if `xs` are Hensel liftable to a system of roots of `fs`. If so, also returns the system of roots.
+
+`fs` must be a system of `n` equations of rank `n`, and `xs` must be a sequence of `n` p-adic numbers.
+
+
+**Parameters**
+- `Strategy := "default"`: The precision strategy to use.
+- `Slopes`: When given, must be a sequence of `n` rationals to slope the equations by. That is, conceptually we multiply the `i`th variable by `pi^Slopes[i]` and `xs[i]` correspondingly by `pi^-Slopes[i]`. When not given, the zero slope is used.
+- `Shifts`: When given, must be a sequence of `n` rationals to shift the equations by. That is, conceptually we multiply the `i`th equation by `pi^Shifts[i]`. When not given, the best shifts are chosen.
+- `AsTuple := false`: When `true`, the solution is returned as a `Tup_FldPad`, not as a sequence.
+
+## Internals
+{:#internals}
+
+### Approximation
 {:#approximation}
 
 <a id="WeakMonomials"></a><a id="WeakMonomials--RngMPolElt_FldPadExact"></a>
@@ -169,28 +193,4 @@ The coefficients of `f` corresponding to `WeakMonomials(f)`.
 
 The coefficients and monomials of `f`.
 
-
-## Printing
-{:#printing}
-
-## Hensel lifting
-{:#hensel-lifting}
-
-<a id="IsHenselLiftable"></a><a id="IsHenselLiftable--seq-RngMPolElt_FldPadExact--etc"></a><a id="IsHenselLiftable--seq-RngMPolElt_FldPadExact--seq-FldPadExactElt"></a>
-> **IsHenselLiftable** (fs :: [*RngMPolElt_FldPadExact*], xs :: [*FldPadExactElt*])
-> 
-> -> *BoolElt*, []
-> {:.ret}
-{:.intrinsic}
-
-True if `xs` are Hensel liftable to a system of roots of `fs`. If so, also returns the system of roots.
-
-`fs` must be a system of `n` equations of rank `n`, and `xs` must be a sequence of `n` p-adic numbers.
-
-
-**Parameters**
-- `Strategy := "default"`: The precision strategy to use.
-- `Slopes`: When given, must be a sequence of `n` rationals to slope the equations by. That is, conceptually we multiply the `i`th variable by `pi^Slopes[i]` and `xs[i]` correspondingly by `pi^-Slopes[i]`. When not given, the zero slope is used.
-- `Shifts`: When given, must be a sequence of `n` rationals to shift the equations by. That is, conceptually we multiply the `i`th equation by `pi^Shifts[i]`. When not given, the best shifts are chosen.
-- `AsTuple := false`: When `true`, the solution is returned as a `Tup_FldPad`, not as a sequence.
 

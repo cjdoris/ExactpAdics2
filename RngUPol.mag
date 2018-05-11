@@ -179,6 +179,7 @@ intrinsic Generator(R :: RngUPol_FldPadExact) -> RngUPolElt_FldPadExact
   return R`generator;
 end intrinsic;
 
+/// Zero and one.
 intrinsic Zero(R :: RngUPol_FldPadExact) -> RngUPolElt_FldPadExact
   {The zero of R.}
   if not assigned R`zero then
@@ -192,6 +193,7 @@ intrinsic Zero(R :: RngUPol_FldPadExact) -> RngUPolElt_FldPadExact
   return R`zero;
 end intrinsic;
 
+///hide
 intrinsic One(R :: RngUPol_FldPadExact) -> RngUPolElt_FldPadExact
   {The one of R.}
   if not assigned R`one then
@@ -307,6 +309,11 @@ intrinsic ChangeRing(f :: RngUPolElt_FldPadExact, F :: FldPadExact) -> RngUPolEl
   end if;
 end intrinsic;
 
+intrinsic ChangeRing(f :: RngUPolElt, F :: FldPadExact) -> RngUPolElt_FldPadExact
+  {"}
+  return PolynomialRing(F) ! f;
+end intrinsic;
+
 ///## Polynomial basics
 
 ///### Degree
@@ -358,10 +365,9 @@ intrinsic LeadingCoefficient(f :: RngUPolElt_FldPadExact) -> FldPadExactElt
   return Coefficient(f, Degree(f));
 end intrinsic;
 
-///### Valuation
-
 ///### Arithmetic
 
+/// Negate, add, subtract, multiply, divide by scalar, power, sum, product.
 intrinsic '-'(f :: RngUPolElt_FldPadExact) -> RngUPolElt_FldPadExact
   {Negation.}
   if not assigned f`negation then
@@ -376,6 +382,7 @@ intrinsic '-'(f :: RngUPolElt_FldPadExact) -> RngUPolElt_FldPadExact
   return f`negation;
 end intrinsic;
 
+///ditto
 intrinsic '+'(f :: RngUPolElt_FldPadExact, g :: RngUPolElt_FldPadExact) -> RngUPolElt_FldPadExact
   {Add.}
   ok, R := ExistsCoveringStructure(Parent(f), Parent(g));
@@ -395,6 +402,7 @@ intrinsic '+'(x, y :: RngUPolElt_FldPadExact) -> .
   return do_binop('+', x, y);
 end intrinsic;
 
+///ditto
 intrinsic '-'(f :: RngUPolElt_FldPadExact, g :: RngUPolElt_FldPadExact) -> RngUPolElt_FldPadExact
   {Subtract.}
   ok, R := ExistsCoveringStructure(Parent(f), Parent(g));
@@ -419,6 +427,7 @@ intrinsic '-'(x, y :: RngUPolElt_FldPadExact) -> .
   return do_binop('-', x, y);
 end intrinsic;
 
+///ditto
 intrinsic '*'(f :: RngUPolElt_FldPadExact, g :: RngUPolElt_FldPadExact) -> RngUPolElt_FldPadExact
   {Multiply.}
   ok, R := ExistsCoveringStructure(Parent(f), Parent(g));
@@ -438,6 +447,7 @@ intrinsic '*'(x, y :: RngUPolElt_FldPadExact) -> .
   return do_binop('*', x, y);
 end intrinsic;
 
+///ditto
 intrinsic '/'(f :: RngUPolElt_FldPadExact, x :: FldPadExactElt) -> RngUPolElt_FldPadExact
   {Divide by a scalar.}
   ok, F := ExistsCoveringStructure(BaseRing(f), Parent(x));
@@ -470,6 +480,61 @@ intrinsic '/'(f :: RngUPolElt, x :: FldPadExactElt) -> .
   return (PolynomialRing(F) ! x) / (F ! x);
 end intrinsic;
 
+///ditto
+intrinsic '^'(f :: RngUPolElt_FldPadExact, m :: RngIntElt) -> RngUPolElt_FldPadExact
+  {Power.}
+  require m ge 0: "m must not be negative";
+  R := Parent(f);
+  if m eq 0 then
+    return One(R);
+  end if;
+  h := New(RngUPolElt_FldPadExact);
+  h`parent := R;
+  h`dependencies := [* f *];
+  h`get_approximation := func<n,xf | xf[1]^m>;
+  Init(h);
+  return h;
+end intrinsic;
+
+///ditto
+intrinsic '&+'(fs :: [RngUPolElt_FldPadExact]) -> RngUPolElt_FldPadExact
+  {Sum.}
+  R := Universe(fs);
+  case #fs:
+  when 0:
+    return Zero(R);
+  when 1:
+    return fs[1];
+  else
+    h := New(RngUPolElt_FldPadExact);
+    h`parent := R;
+    h`dependencies := [* f : f in fs *];
+    h`get_approximation := func<n,xfs|&+[xf : xf in xfs]>;
+    Init(h);
+    return h;
+  end case;
+end intrinsic;
+
+///ditto
+intrinsic '&*'(fs :: [RngUPolElt_FldPadExact]) -> RngUPolElt_FldPadExact
+  {Product.}
+  R := Universe(fs);
+  case #fs:
+  when 0:
+    return One(R);
+  when 1:
+    return fs[1];
+  else
+    h := New(RngUPolElt_FldPadExact);
+    h`parent := R;
+    h`dependencies := [* f : f in fs *];
+    h`get_approximation := func<n,xfs | &*[xf : xf in xfs]>;
+    Init(h);
+    return h;
+  end case;
+end intrinsic;
+
+/// Division and remainder.
 intrinsic 'div'(f :: RngUPolElt_FldPadExact, g :: RngUPolElt_FldPadExact) -> RngUPolElt_FldPadExact
   {Exact divide.}
   ok, R := ExistsCoveringStructure(Parent(f), Parent(g));
@@ -497,64 +562,37 @@ intrinsic 'div'(x, y :: RngUPolElt_FldPadExact) -> .
   return do_binop('div', x, y);
 end intrinsic;
 
-intrinsic '^'(f :: RngUPolElt_FldPadExact, m :: RngIntElt) -> RngUPolElt_FldPadExact
-  {Power.}
-  require m ge 0: "m must not be negative";
-  R := Parent(f);
-  if m eq 0 then
-    return One(R);
-  end if;
+///ditto
+intrinsic 'mod'(f :: RngUPolElt_FldPadExact, g :: RngUPolElt_FldPadExact) -> RngUPolElt_FldPadExact
+  {Remainder.}
+  ok, R := ExistsCoveringStructure(Parent(f), Parent(g));
+  require ok: "not coercible to a common ring";
+  f2 := R ! f;
+  g2 := R ! g;
+  EnsureAllApproximationsFullDegree(g2);
   h := New(RngUPolElt_FldPadExact);
   h`parent := R;
-  h`dependencies := [* f *];
-  h`get_approximation := func<n,xf | xf[1]^m>;
+  h`dependencies := [*f2,g2*];
+  h`get_approximation := func<n,xds | xds[1] mod xds[2]>;
   Init(h);
   return h;
 end intrinsic;
 
-intrinsic '&+'(fs :: [RngUPolElt_FldPadExact]) -> RngUPolElt_FldPadExact
-  {Sum.}
-  R := Universe(fs);
-  case #fs:
-  when 0:
-    return Zero(R);
-  when 1:
-    return fs[1];
-  else
-    h := New(RngUPolElt_FldPadExact);
-    h`parent := R;
-    h`dependencies := [* f : f in fs *];
-    h`get_approximation := func<n,xfs|&+[xf : xf in xfs]>;
-    Init(h);
-    return h;
-  end case;
+///hide
+intrinsic 'mod'(x :: RngUPolElt_FldPadExact, y) -> .
+  {"}
+  return do_binop('mod', x, y);
 end intrinsic;
 
-intrinsic '&*'(fs :: [RngUPolElt_FldPadExact]) -> RngUPolElt_FldPadExact
-  {Product.}
-  R := Universe(fs);
-  case #fs:
-  when 0:
-    return One(R);
-  when 1:
-    return fs[1];
-  else
-    h := New(RngUPolElt_FldPadExact);
-    h`parent := R;
-    h`dependencies := [* f : f in fs *];
-    h`get_approximation := func<n,xfs | &*[xf : xf in xfs]>;
-    Init(h);
-    return h;
-  end case;
+///hide
+intrinsic 'mod'(x, y :: RngUPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('mod', x, y);
 end intrinsic;
 
 ///### Derivative
 
-intrinsic Derivative(f :: RngUPolElt_FldPadExact) -> RngUPolElt_FldPadExact
-  {The derivative of f.}
-  return Derivative(f, 1);
-end intrinsic;
-
+/// The mth or first derivative of f.
 intrinsic Derivative(f :: RngUPolElt_FldPadExact, m :: RngIntElt) -> RngUPolElt_FldPadExact
   {The mth derivative of f.}
   require m ge 0: "m must be non-negative";
@@ -576,6 +614,11 @@ intrinsic Derivative(f :: RngUPolElt_FldPadExact, m :: RngIntElt) -> RngUPolElt_
     f`derivative[m] := h;
   end if;
   return f`derivative[m];
+end intrinsic;
+
+intrinsic Derivative(f :: RngUPolElt_FldPadExact) -> RngUPolElt_FldPadExact
+  {The derivative of f.}
+  return Derivative(f, 1);
 end intrinsic;
 
 ///### Evaluate
@@ -749,7 +792,7 @@ end intrinsic;
 /// This uses a generalized statement of Hensel's lemma which does not require the inputs to be integral, namely:
 /// 
 /// **Hensel's lemma.** *If $f(x) \in K[x]$ and $x \in K$ such that $x$ is closer to one root of $f$ than any other, then iterating $x \mapsto x - f(x)/f'(x)$ converges to that root.*
-intrinsic IsHenselLiftable(f :: RngUPolElt_FldPadExact, x :: FldPadExactElt : Strategy:="default") -> BoolElt, FldPadExactElt
+intrinsic IsHenselLiftable(f :: RngUPolElt_FldPadExact, x :: FldPadExactElt) -> BoolElt, FldPadExactElt
   {True if x is sufficiently close to a root of f to be Hensel-liftable. If so, also returns the root.}
   K := Parent(x);
   R := PolynomialRing(K);
@@ -906,7 +949,9 @@ intrinsic IsHenselLiftable(f :: RngUPolElt_FldPadExact, g :: RngUPolElt_FldPadEx
   end if;
 end intrinsic;
 
-///## Approximation
+///## Internals
+///priority -1
+///### Approximation
 
 intrinsic WeakValuation(f :: RngUPolElt_FldPadExact) -> ValRngUPolElt_FldPadExact
   {The weak valuation of f.}

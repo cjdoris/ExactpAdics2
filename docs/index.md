@@ -21,7 +21,7 @@ Please direct any bugs, comments or queries to [the GitHub issue tracker](https:
 * [Univariate polynomials]({{site.baseurl}}/univariate-polynomials)
 * [Multivariate polynomials]({{site.baseurl}}/multivariate-polynomials)
 * [Valuations]({{site.baseurl}}/valuations)
-* [Tuples, etc.]({{site.baseurl}}/aggregates)
+* [Aggregates (tuples, etc.)]({{site.baseurl}}/aggregates)
 * [Internals]({{site.baseurl}}/internals)
 * [Miscellany]({{site.baseurl}}/miscellany)
 

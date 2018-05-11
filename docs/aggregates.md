@@ -4,14 +4,14 @@
 
 **Contents**
 * [Tuples](#tuples)
-* [Creation of cartesian products](#creation-of-cartesian-products)
-* [Creation of tuples](#creation-of-tuples)
-* [Basic operations](#basic-operations)
+  * [Creation of cartesian products](#creation-of-cartesian-products)
+  * [Creation of tuples](#creation-of-tuples)
+  * [Basic operations](#basic-operations)
 
 ## Tuples
 {:#tuples}
 
-## Creation of cartesian products
+### Creation of cartesian products
 {:#creation-of-cartesian-products}
 
 <a id="ExactpAdics_CartesianProduct"></a><a id="ExactpAdics_CartesianProduct--Tup"></a>
@@ -34,7 +34,7 @@ The cartesian product of the `components`.
 The `n`th cartesian power of `S`.
 
 
-## Creation of tuples
+### Creation of tuples
 {:#creation-of-tuples}
 
 <a id="IsCoercible"></a><a id="IsCoercible--SetCart_PadExact--etc"></a><a id="IsCoercible--SetCart_PadExact--any"></a><a id="IsCoercible--SetCart_PadExact--Tup_PadExact"></a><a id="IsCoercible--SetCart_PadExact--Tup"></a>
@@ -48,14 +48,15 @@ The `n`th cartesian power of `S`.
 > {:.ret}
 {:.intrinsic}
 
-True if `X` is coercible to an element of `C`.
+We can coerce the following to an exact tuple:
+- A tuple or exact tuple whose entries are coercible to the components of the cartesian product.
 
 
 
 
 
 
-## Basic operations
+### Basic operations
 {:#basic-operations}
 
 <a id="NumberOfComponents"></a><a id="NumberOfComponents--SetCart_PadExact"></a>

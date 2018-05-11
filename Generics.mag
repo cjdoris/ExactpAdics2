@@ -254,9 +254,9 @@ end intrinsic;
 
 /// Sets the approximation of x at epoch n to xx.
 /// 
-/// This is called by `BringToEpoch` and `InterpolateUpTo`.
+/// This is called by [`BringToEpoch`](#BringToEpoch) and [`InterpolateUpTo`](#InterpolateUpTo).
 /// 
-/// It checks the new approximation is valid by calling `IsValidApproximation`, then calls `SetApproximationHook`, then calls `InterpolateEpochs` if necessary to get missing approximations below `n`, and then finally updates the list of approximations.
+/// It checks the new approximation is valid by calling [`IsValidApproximation`](#IsValidApproximation), then calls [`SetApproximationHook`](#SetApproximationHook), then calls [`InterpolateEpochs`](#InterpolateEpochs) if necessary to get missing approximations below `n`, and then finally updates the list of approximations.
 intrinsic SetApproximation(x :: AnyPadExact, n :: RngIntElt, xx)
   {Sets the approximation of x at epoch n to xx.}
   ok, err := IsValidApproximation(x, n, xx);

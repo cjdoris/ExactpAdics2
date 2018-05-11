@@ -296,7 +296,9 @@ intrinsic Exponents(m :: RngMPolElt_FldPadExact) -> []
   return e;
 end intrinsic;
 
-///## Approximation
+///## Internals
+///priority -1
+///### Approximation
 
 intrinsic WeakMonomials(f :: RngMPolElt_FldPadExact) -> []
   {The monomials of f. Some of the corresponding coefficients may be zero.}
@@ -324,8 +326,6 @@ intrinsic WeakCoefficientsAndMonomials(f :: RngMPolElt_FldPadExact) -> [], []
   {The coefficients and monomials of f.}
   return WeakCoefficients(f), WeakMonomials(f);
 end intrinsic;
-
-///## Printing
 
 ///## Hensel lifting
 

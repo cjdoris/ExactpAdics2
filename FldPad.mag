@@ -1409,6 +1409,7 @@ intrinsic ResidueClass(x :: FldPadExactElt) -> FldFinElt
 end intrinsic;
 
 ///## Internals
+///priority -1
 ///### Approximations
 
 intrinsic WeakValuation(x :: FldPadExactElt) -> ValFldPadExactElt

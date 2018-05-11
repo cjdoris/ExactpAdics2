@@ -7,7 +7,18 @@ In this section, we document the generic internal structure common to all p-adic
 * [Overview](#overview)
 * [Generic intrinsics](#generic-intrinsics)
 * [Overloadable intrinsics](#overloadable-intrinsics)
+* [Version](#version)
+* [Global ID](#global-id)
+* [Warnings](#warnings)
 
+
+**Contents**
+* [Overview](#overview)
+* [Generic intrinsics](#generic-intrinsics)
+* [Overloadable intrinsics](#overloadable-intrinsics)
+* [Version](#version)
+* [Global ID](#global-id)
+* [Warnings](#warnings)
 
 ## Overview
 {:#overview}
@@ -184,9 +195,9 @@ Replaces the approximations of `x` below n with their interpolations, where n is
 
 Sets the approximation of `x` at epoch `n` to `xx`.
 
-This is called by `BringToEpoch` and `InterpolateUpTo`.
+This is called by [`BringToEpoch`](#BringToEpoch) and [`InterpolateUpTo`](#InterpolateUpTo).
 
-It checks the new approximation is valid by calling `IsValidApproximation`, then calls `SetApproximationHook`, then calls `InterpolateEpochs` if necessary to get missing approximations below `n`, and then finally updates the list of approximations.
+It checks the new approximation is valid by calling [`IsValidApproximation`](#IsValidApproximation), then calls [`SetApproximationHook`](#SetApproximationHook), then calls [`InterpolateEpochs`](#InterpolateEpochs) if necessary to get missing approximations below `n`, and then finally updates the list of approximations.
 
 
 ## Overloadable intrinsics
@@ -253,4 +264,88 @@ True if `xx` is a valid approximation of `x` at epoch `n`. If not, also returns 
 
 For p-adic elements, this checks that the approximation is an element of the approximation of the parent, and that it is weakly equal to the current best approximation for `x`.
 
+
+## Version
+{:#version}
+
+<a id="ExactpAdics_Version"></a><a id="ExactpAdics_Version--noargs"></a>
+> **ExactpAdics_Version** ()
+> 
+> -> *RngIntElt*, *RngIntElt*, *RngIntElt*
+> {:.ret}
+{:.intrinsic}
+
+The version of the ExactpAdics package, as major, minor and patch numbers.
+
+
+<a id="ExactpAdics_Implementation"></a><a id="ExactpAdics_Implementation--noargs"></a>
+> **ExactpAdics_Implementation** ()
+> 
+> -> *RngIntElt*
+> {:.ret}
+{:.intrinsic}
+
+This returns 2, to distinguish this package from ExactpAdics, for which this returns 1.
+
+
+## Global ID
+{:#global-id}
+
+Each p-adic object (`AnyPadExact`) has a unique `id` attribute, which is ordered according to dependency.
+
+<a id="ExactpAdics_NextId"></a><a id="ExactpAdics_NextId--noargs"></a>
+> **ExactpAdics_NextId** ()
+> 
+> -> *RngIntElt*
+> {:.ret}
+{:.intrinsic}
+
+The next global id.
+
+
+## Warnings
+{:#warnings}
+
+For controlling the extent to which errors and warning occur in the package.
+
+<a id="ExactpAdics_SetWarningAction"></a><a id="ExactpAdics_SetWarningAction--MonStgElt--etc"></a><a id="ExactpAdics_SetWarningAction--MonStgElt--MonStgElt"></a>
+> **ExactpAdics_SetWarningAction** (name :: *MonStgElt*, action :: *MonStgElt*)
+{:.intrinsic}
+
+Sets how the warning `name` is displayed. `action` is one of:
+- `"Ignore"`: ignores the warning and does nothing
+- `"Warn"`: prints the warning to the screen
+- `"WarnOnce"`: prints the warning to the screen the first time it occurs
+- `"Error"`: raises an error
+
+
+<a id="ExactpAdics_WarningActionIsDefined"></a><a id="ExactpAdics_WarningActionIsDefined--MonStgElt"></a>
+> **ExactpAdics_WarningActionIsDefined** (name :: *MonStgElt*)
+> 
+> -> *BoolElt*, *MonStgElt*
+> {:.ret}
+{:.intrinsic}
+
+True if there is a warning action defined for warning `name`. If so, also returns the action.
+
+
+<a id="ExactpAdics_GetWarningAction"></a><a id="ExactpAdics_GetWarningAction--MonStgElt--etc"></a><a id="ExactpAdics_GetWarningAction--MonStgElt--MonStgElt"></a>
+> **ExactpAdics_GetWarningAction** (name :: *MonStgElt*, dflt :: *MonStgElt*)
+> 
+> -> *MonStgElt*
+> {:.ret}
+{:.intrinsic}
+
+The warning action set for warning `name`, if set, or else `dflt`.
+
+
+<a id="ExactpAdics_Warn"></a><a id="ExactpAdics_Warn--MonStgElt--etc"></a><a id="ExactpAdics_Warn--MonStgElt--any"></a>
+> **ExactpAdics_Warn** (name :: *MonStgElt*, msg)
+{:.intrinsic}
+
+Raises the warning `name` with message `msg`.
+
+**Parameters**
+- `DefaultAction`
+- `Action`
 

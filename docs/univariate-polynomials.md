@@ -12,7 +12,6 @@
 * [Polynomial basics](#polynomial-basics)
   * [Degree](#degree)
   * [Coefficients](#coefficients)
-  * [Valuation](#valuation)
   * [Arithmetic](#arithmetic)
   * [Derivative](#derivative)
   * [Evaluate](#evaluate)
@@ -20,7 +19,8 @@
 * [Discriminant and resultant](#discriminant-and-resultant)
 * [Newton polygon](#newton-polygon)
 * [Hensel lifting](#hensel-lifting)
-* [Approximation](#approximation)
+* [Internals](#internals)
+  * [Approximation](#approximation)
 * [Root-finding and factorization](#root-finding-and-factorization)
 
 ## Creation of rings
@@ -72,17 +72,7 @@ The generator of `R`.
 > {:.ret}
 {:.intrinsic}
 
-The zero of `R`.
-
-
-<a id="One"></a><a id="One--RngUPol_FldPadExact"></a>
-> **One** (R :: *RngUPol_FldPadExact*)
-> 
-> -> *RngUPolElt_FldPadExact*
-> {:.ret}
-{:.intrinsic}
-
-The one of `R`.
+Zero and one.
 
 
 ### From coefficients
@@ -128,14 +118,18 @@ We can coerce the following to a polynomial in `R`:
 True if `X` is coercible to `R`.
 
 
-<a id="ChangeRing"></a><a id="ChangeRing--RngUPolElt_FldPadExact--etc"></a><a id="ChangeRing--RngUPolElt_FldPadExact--FldPadExact"></a>
+<a id="ChangeRing"></a><a id="ChangeRing--RngUPolElt_FldPadExact--etc"></a><a id="ChangeRing--RngUPolElt_FldPadExact--FldPadExact"></a><a id="ChangeRing--RngUPolElt--etc"></a><a id="ChangeRing--RngUPolElt--FldPadExact"></a>
 > **ChangeRing** (f :: *RngUPolElt_FldPadExact*, F :: *FldPadExact*)
+> 
+> **ChangeRing** (f :: *RngUPolElt*, F :: *FldPadExact*)
 > 
 > -> *RngUPolElt_FldPadExact*
 > {:.ret}
 {:.intrinsic}
 
 Changes the base ring of `f` to `F`.
+
+
 
 
 ## Polynomial basics
@@ -187,106 +181,75 @@ The coefficients of `f`.
 The leading coefficient of `f`.
 
 
-### Valuation
-{:#valuation}
-
 ### Arithmetic
 {:#arithmetic}
 
-<a id="-"></a><a id="---RngUPolElt_FldPadExact"></a>
+<a id="-"></a><a id="---RngUPolElt_FldPadExact"></a><a id="+"></a><a id="+--RngUPolElt_FldPadExact--etc"></a><a id="+--RngUPolElt_FldPadExact--RngUPolElt_FldPadExact"></a><a id="---RngUPolElt_FldPadExact--etc"></a><a id="---RngUPolElt_FldPadExact--RngUPolElt_FldPadExact"></a><a id="*"></a><a id="*--RngUPolElt_FldPadExact--etc"></a><a id="*--RngUPolElt_FldPadExact--RngUPolElt_FldPadExact"></a><a id="/"></a><a id="/--RngUPolElt_FldPadExact--etc"></a><a id="/--RngUPolElt_FldPadExact--FldPadExactElt"></a><a id="^"></a><a id="^--RngUPolElt_FldPadExact--etc"></a><a id="^--RngUPolElt_FldPadExact--RngIntElt"></a><a id="&+"></a><a id="&+--seq-RngUPolElt_FldPadExact"></a><a id="&*"></a><a id="&*--seq-RngUPolElt_FldPadExact"></a>
 > **\'-\'** (f :: *RngUPolElt_FldPadExact*)
 > 
-> -> *RngUPolElt_FldPadExact*
-> {:.ret}
-{:.intrinsic}
-
-Negation.
-
-
-<a id="+"></a><a id="+--RngUPolElt_FldPadExact--etc"></a><a id="+--RngUPolElt_FldPadExact--RngUPolElt_FldPadExact"></a>
 > **\'+\'** (f :: *RngUPolElt_FldPadExact*, g :: *RngUPolElt_FldPadExact*)
 > 
-> -> *RngUPolElt_FldPadExact*
-> {:.ret}
-{:.intrinsic}
-
-Add.
-
-
-<a id="--2"></a><a id="---RngUPolElt_FldPadExact--etc"></a><a id="---RngUPolElt_FldPadExact--RngUPolElt_FldPadExact"></a>
 > **\'-\'** (f :: *RngUPolElt_FldPadExact*, g :: *RngUPolElt_FldPadExact*)
 > 
-> -> *RngUPolElt_FldPadExact*
-> {:.ret}
-{:.intrinsic}
-
-Subtract.
-
-
-<a id="*"></a><a id="*--RngUPolElt_FldPadExact--etc"></a><a id="*--RngUPolElt_FldPadExact--RngUPolElt_FldPadExact"></a>
 > **\'\*\'** (f :: *RngUPolElt_FldPadExact*, g :: *RngUPolElt_FldPadExact*)
 > 
-> -> *RngUPolElt_FldPadExact*
-> {:.ret}
-{:.intrinsic}
-
-Multiply.
-
-
-<a id="/"></a><a id="/--RngUPolElt_FldPadExact--etc"></a><a id="/--RngUPolElt_FldPadExact--FldPadExactElt"></a>
 > **\'/\'** (f :: *RngUPolElt_FldPadExact*, x :: *FldPadExactElt*)
 > 
-> -> *RngUPolElt_FldPadExact*
-> {:.ret}
-{:.intrinsic}
-
-Divide by a scalar.
-
-
-<a id="div"></a><a id="div--RngUPolElt_FldPadExact--etc"></a><a id="div--RngUPolElt_FldPadExact--RngUPolElt_FldPadExact"></a>
-> **\'div\'** (f :: *RngUPolElt_FldPadExact*, g :: *RngUPolElt_FldPadExact*)
-> 
-> -> *RngUPolElt_FldPadExact*
-> {:.ret}
-{:.intrinsic}
-
-Exact divide.
-
-
-<a id="^"></a><a id="^--RngUPolElt_FldPadExact--etc"></a><a id="^--RngUPolElt_FldPadExact--RngIntElt"></a>
 > **\'^\'** (f :: *RngUPolElt_FldPadExact*, m :: *RngIntElt*)
 > 
-> -> *RngUPolElt_FldPadExact*
-> {:.ret}
-{:.intrinsic}
-
-Power.
-
-
-<a id="&+"></a><a id="&+--seq-RngUPolElt_FldPadExact"></a>
 > **\'&+\'** (fs :: [*RngUPolElt_FldPadExact*])
 > 
-> -> *RngUPolElt_FldPadExact*
-> {:.ret}
-{:.intrinsic}
-
-Sum.
-
-
-<a id="&*"></a><a id="&*--seq-RngUPolElt_FldPadExact"></a>
 > **\'&\*\'** (fs :: [*RngUPolElt_FldPadExact*])
 > 
 > -> *RngUPolElt_FldPadExact*
 > {:.ret}
 {:.intrinsic}
 
-Product.
+Negate, add, subtract, multiply, divide by scalar, power, sum, product.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a id="div"></a><a id="div--RngUPolElt_FldPadExact--etc"></a><a id="div--RngUPolElt_FldPadExact--RngUPolElt_FldPadExact"></a><a id="mod"></a><a id="mod--RngUPolElt_FldPadExact--etc"></a><a id="mod--RngUPolElt_FldPadExact--RngUPolElt_FldPadExact"></a>
+> **\'div\'** (f :: *RngUPolElt_FldPadExact*, g :: *RngUPolElt_FldPadExact*)
+> 
+> **\'mod\'** (f :: *RngUPolElt_FldPadExact*, g :: *RngUPolElt_FldPadExact*)
+> 
+> -> *RngUPolElt_FldPadExact*
+> {:.ret}
+{:.intrinsic}
+
+Division and remainder.
+
+
 
 
 ### Derivative
 {:#derivative}
 
-<a id="Derivative"></a><a id="Derivative--RngUPolElt_FldPadExact"></a>
+<a id="Derivative"></a><a id="Derivative--RngUPolElt_FldPadExact--etc"></a><a id="Derivative--RngUPolElt_FldPadExact--RngIntElt"></a>
+> **Derivative** (f :: *RngUPolElt_FldPadExact*, m :: *RngIntElt*)
+> 
+> -> *RngUPolElt_FldPadExact*
+> {:.ret}
+{:.intrinsic}
+
+The `m`th or first derivative of `f`.
+
+
+<a id="Derivative-2"></a><a id="Derivative--RngUPolElt_FldPadExact"></a>
 > **Derivative** (f :: *RngUPolElt_FldPadExact*)
 > 
 > -> *RngUPolElt_FldPadExact*
@@ -294,16 +257,6 @@ Product.
 {:.intrinsic}
 
 The derivative of `f`.
-
-
-<a id="Derivative-2"></a><a id="Derivative--RngUPolElt_FldPadExact--etc"></a><a id="Derivative--RngUPolElt_FldPadExact--RngIntElt"></a>
-> **Derivative** (f :: *RngUPolElt_FldPadExact*, m :: *RngIntElt*)
-> 
-> -> *RngUPolElt_FldPadExact*
-> {:.ret}
-{:.intrinsic}
-
-The `m`th derivative of `f`.
 
 
 ### Evaluate
@@ -412,8 +365,6 @@ This uses a generalized statement of Hensel's lemma which does not require the i
 
 **Hensel's lemma.** *If $f(x) \in K[x]$ and $x \in K$ such that $x$ is closer to one root of $f$ than any other, then iterating $x \mapsto x - f(x)/f'(x)$ converges to that root.*
 
-**Parameters**
-- `Strategy`
 
 <a id="IsHenselLiftable-2"></a><a id="IsHenselLiftable--RngUPolElt_FldPadExact--etc-2"></a><a id="IsHenselLiftable--RngUPolElt_FldPadExact--RngUPolElt_FldPadExact"></a>
 > **IsHenselLiftable** (f :: *RngUPolElt_FldPadExact*, g :: *RngUPolElt_FldPadExact*)
@@ -431,68 +382,6 @@ True if `g` is Hensel-liftable to a factor of `f`. If so, also returns the facto
 - `Slope := 0`: A rational number, deslope the polynomials by this amount before applying Hensel's lemma; usually Slope will be a slope of the Newton polygon of `g`.
 - `fShift := 0`: A rational number, subtract this from the valuation of `f` after applying `Slope`.
 - `gShift := 0`: A rational number, subtract this from the valuation of `g` after applying `Slope`.
-
-## Approximation
-{:#approximation}
-
-<a id="WeakValuation"></a><a id="WeakValuation--RngUPolElt_FldPadExact"></a>
-> **WeakValuation** (f :: *RngUPolElt_FldPadExact*)
-> 
-> -> *ValRngUPolElt_FldPadExact*
-> {:.ret}
-{:.intrinsic}
-
-The weak valuation of `f`.
-
-
-<a id="AbsolutePrecision"></a><a id="AbsolutePrecision--RngUPolElt_FldPadExact"></a>
-> **AbsolutePrecision** (f :: *RngUPolElt_FldPadExact*)
-> 
-> -> *ValRngUPolElt_FldPadExact*
-> {:.ret}
-{:.intrinsic}
-
-The weak valuation of `f`.
-
-
-<a id="WeakDegree"></a><a id="WeakDegree--RngUPolElt_FldPadExact"></a>
-> **WeakDegree** (f :: *RngUPolElt_FldPadExact*)
-> 
-> -> *RngIntElt*
-> {:.ret}
-{:.intrinsic}
-
-The weak degree of `f`, an upper bound on the actual degree.
-
-
-<a id="WeakApproximation"></a><a id="WeakApproximation--RngUPolElt_FldPadExact"></a>
-> **WeakApproximation** (f :: *RngUPolElt_FldPadExact*)
-> 
-> -> *RngUPolElt_FldPadExact*
-> {:.ret}
-{:.intrinsic}
-
-A polynomial weakly equal to `f` at its current precision.
-
-
-<a id="IsDefinitelyFullDegree"></a><a id="IsDefinitelyFullDegree--RngUPolElt_FldPadExact"></a>
-> **IsDefinitelyFullDegree** (f :: *RngUPolElt_FldPadExact*)
-> 
-> -> *BoolElt*, *RngIntElt*
-> {:.ret}
-{:.intrinsic}
-
-True if `f` is definitely full degree.
-
-**Parameters**
-- `Minimize`
-
-<a id="EnsureAllApproximationsFullDegree"></a><a id="EnsureAllApproximationsFullDegree--RngUPolElt_FldPadExact"></a>
-> **EnsureAllApproximationsFullDegree** (f :: *RngUPolElt_FldPadExact*)
-{:.intrinsic}
-
-Ensures that all approximations of `f` are full-degree.
-
 
 ## Root-finding and factorization
 {:#root-finding-and-factorization}
@@ -598,4 +487,69 @@ Our implementation of an OM factorization algorithm, specialised to root-finding
 
 **Parameters**
 - `Lift := true`: When false, does not lift the result to full precision. Hence faster, but gives less precise results.
+
+## Internals
+{:#internals}
+
+### Approximation
+{:#approximation}
+
+<a id="WeakValuation"></a><a id="WeakValuation--RngUPolElt_FldPadExact"></a>
+> **WeakValuation** (f :: *RngUPolElt_FldPadExact*)
+> 
+> -> *ValRngUPolElt_FldPadExact*
+> {:.ret}
+{:.intrinsic}
+
+The weak valuation of `f`.
+
+
+<a id="AbsolutePrecision"></a><a id="AbsolutePrecision--RngUPolElt_FldPadExact"></a>
+> **AbsolutePrecision** (f :: *RngUPolElt_FldPadExact*)
+> 
+> -> *ValRngUPolElt_FldPadExact*
+> {:.ret}
+{:.intrinsic}
+
+The weak valuation of `f`.
+
+
+<a id="WeakDegree"></a><a id="WeakDegree--RngUPolElt_FldPadExact"></a>
+> **WeakDegree** (f :: *RngUPolElt_FldPadExact*)
+> 
+> -> *RngIntElt*
+> {:.ret}
+{:.intrinsic}
+
+The weak degree of `f`, an upper bound on the actual degree.
+
+
+<a id="WeakApproximation"></a><a id="WeakApproximation--RngUPolElt_FldPadExact"></a>
+> **WeakApproximation** (f :: *RngUPolElt_FldPadExact*)
+> 
+> -> *RngUPolElt_FldPadExact*
+> {:.ret}
+{:.intrinsic}
+
+A polynomial weakly equal to `f` at its current precision.
+
+
+<a id="IsDefinitelyFullDegree"></a><a id="IsDefinitelyFullDegree--RngUPolElt_FldPadExact"></a>
+> **IsDefinitelyFullDegree** (f :: *RngUPolElt_FldPadExact*)
+> 
+> -> *BoolElt*, *RngIntElt*
+> {:.ret}
+{:.intrinsic}
+
+True if `f` is definitely full degree.
+
+**Parameters**
+- `Minimize`
+
+<a id="EnsureAllApproximationsFullDegree"></a><a id="EnsureAllApproximationsFullDegree--RngUPolElt_FldPadExact"></a>
+> **EnsureAllApproximationsFullDegree** (f :: *RngUPolElt_FldPadExact*)
+{:.intrinsic}
+
+Ensures that all approximations of `f` are full-degree.
+
 
