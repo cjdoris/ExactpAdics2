@@ -28,7 +28,7 @@ function eisensteinPolyDefinesUniqueExtension(f)
   if WZERO(D) then
     return false;
   end if;
-  vD := WVAL(D);
+  vD := VAL(D);
   j := vD - d + 1;
   FUDGE := 2*d*AbsoluteRamificationDegree(BaseRing(f));
   apr := Floor(1+2*j/d) + 1 + FUDGE;
