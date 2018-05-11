@@ -3,6 +3,10 @@
 
 Bits and bobs not belonging to the main features of the package, but needed by the package and useful nonetheless.
 
+**Contents**
+* [Default associative arrays](#default-associative-arrays)
+* [Promotion](#promotion)
+
 ## Default associative arrays
 {:#default-associative-arrays}
 

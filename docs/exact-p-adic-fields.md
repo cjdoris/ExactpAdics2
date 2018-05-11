@@ -513,7 +513,7 @@ The prime subfield of `E`.
 > {:.ret}
 {:.intrinsic}
 
-True if `E` is an extension of `F`. If so, also returns an object representing the extension.
+True if `E` is an extension of `F`. If so, also returns an [object representing the extension](#extfldpadexact).
 
 
 ### Invariants

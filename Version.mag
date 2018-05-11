@@ -1,5 +1,4 @@
 ///# Internals
-///toc
 ///## Version
 
 intrinsic ExactpAdics_Version() -> RngIntElt, RngIntElt, RngIntElt

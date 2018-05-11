@@ -1097,6 +1097,7 @@ intrinsic PrimeField(E :: FldPadExact) -> FldPadExact
   return E`prime_field;
 end intrinsic;
 
+/// True if E is an extension of F. If so, also returns an [object representing the extension](#extfldpadexact).
 intrinsic IsExtensionOf(E :: FldPadExact, F :: FldPadExact) -> BoolElt, ExtFldPadExact
   {True if E is an extension of F. If so, also returns an object representing the extension.}
   if not assigned E`is_extension_of then

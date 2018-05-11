@@ -12,14 +12,6 @@ In this section, we document the generic internal structure common to all p-adic
 * [Warnings](#warnings)
 
 
-**Contents**
-* [Overview](#overview)
-* [Generic intrinsics](#generic-intrinsics)
-* [Overloadable intrinsics](#overloadable-intrinsics)
-* [Version](#version)
-* [Global ID](#global-id)
-* [Warnings](#warnings)
-
 ## Overview
 {:#overview}
 

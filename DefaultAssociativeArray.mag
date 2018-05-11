@@ -1,5 +1,6 @@
 ///# Miscellany
 /// Bits and bobs not belonging to the main features of the package, but needed by the package and useful nonetheless.
+///toc
 ///## Default associative arrays
 /// The new type `AssocDflt` is an associative array with a default value. Hence it may be used to describe a function which is constant save for finitely many exceptions.
 
