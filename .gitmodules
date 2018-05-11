@@ -1,0 +1,3 @@
+[submodule "common"]
+	path = common
+	url = /home/cd14919/magma/lib-exactpadics2/../lib-exactpadics-common

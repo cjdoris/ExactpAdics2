@@ -14,4 +14,7 @@
   Factorization_new.mag
   Ramification.mag
   HomFldPadExact.mag
+  common {
+    Factorization_new.mag
+  }
 }

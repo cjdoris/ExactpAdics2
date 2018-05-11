@@ -24,12 +24,16 @@ Initial release
 
 ## Developer notes
 
+### Common code
+
+This and the original `ExactpAdics` share some common code from [the `ExactpAdicsCommon` repository](https://github.com/cjdoris/ExactpAdicsCommon). Instructions on merging code are there.
+
 ### Documentation
 
 Documentation is generated using [magdoc](https://cjdoris.github.io/magdoc) with the following command:
 
 ```
-magdoc.py -o docs FldPad.mag Ramification.mag HomFldPadExact.mag RngUPol.mag Factorization_new.mag RngMPol.mag SetCart.mag ValFldPad.mag ValRngUPol.mag Generics.mag Version.mag State.mag DefaultAssociativeArray.mag Promotion.mag
+magdoc.py -o docs FldPad.mag Ramification.mag HomFldPadExact.mag RngUPol.mag Factorization_new.mag common/Factorization_new.mag RngMPol.mag SetCart.mag ValFldPad.mag ValRngUPol.mag Generics.mag Version.mag State.mag DefaultAssociativeArray.mag Promotion.mag
 ```
 
 ### Potential improvements
