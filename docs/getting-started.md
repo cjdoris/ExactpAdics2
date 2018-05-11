@@ -5,9 +5,9 @@
 
 ## Download
 
-* **Option 1:** Download the latest release from [here](https://github.com/cjdoris/ExactpAdics/releases/latest).
+* **Option 1:** Download the latest release from [here](https://github.com/cjdoris/ExactpAdics2/releases/latest).
 
-* **Option 2:** Clone a copy of the git repository [here](https://github.com/cjdoris/ExactpAdics).
+* **Option 2:** Clone a copy of the git repository [here](https://github.com/cjdoris/ExactpAdics2).
 
 ## Attach the module
 
