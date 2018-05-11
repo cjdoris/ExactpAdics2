@@ -26,7 +26,7 @@ Initial release
 
 ### Common code
 
-This and the original `ExactpAdics` share some common code from [the `ExactpAdicsCommon` repository](https://github.com/cjdoris/ExactpAdicsCommon). Instructions on merging code are there.
+This and the original `ExactpAdics` share some common code from [the `ExactpAdicsCommon` repository](https://github.com/cjdoris/ExactpAdicsCommon). The code there should be periodically copied into the `common` directory (no fancy git merging currently).
 
 ### Documentation
 
