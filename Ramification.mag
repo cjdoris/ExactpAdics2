@@ -195,7 +195,7 @@ intrinsic RamificationFiltration(E :: FldPadExact, F :: FldPadExact) -> []
 end intrinsic;
 
 ///hide
-intrinsic RamificationFiltration(x :: ExtFldPadExact) -> NwtnPgon
+intrinsic RamificationFiltration(x :: ExtFldPadExact : Alg:="LA") -> NwtnPgon
   {The ramification filtration.}
   if not assigned x`ramification_filtration then
     case #Tower(x):
@@ -214,7 +214,6 @@ intrinsic RamificationFiltration(x :: ExtFldPadExact) -> NwtnPgon
         f := DefiningPolynomial(E);
         r := Evaluate(f, PolynomialRing(E) ! [E| E.1, 1]);
         rfacs := NewtonPolygonFactorization(r);
-        D := Degree(E, F);
         Ds := [&+[Degree(rfac) : rfac in rfacs[1..i]] : i in [1..#rfacs]];
         coeffs := [Evaluate(rfac, -E.1) : rfac in rfacs];
         pis := [&*coeffs[1..i] : i in [1..#coeffs]];
@@ -224,7 +223,8 @@ intrinsic RamificationFiltration(x :: ExtFldPadExact) -> NwtnPgon
         EtoE2 := map<E -> E2 | x :-> x>;
         for i in Reverse([1..#pis-1]) do
           pi := pis[i];
-          d := Degree(E2, F2) div Ds[i];
+          dE := Ds[i];
+          d := Degree(E2, F2) div dE;
           pi2 := EtoE2(pi);
           for epoch in [1..99999] do
             xpi2 := EpochApproximation(pi2, epoch);
@@ -238,16 +238,48 @@ intrinsic RamificationFiltration(x :: ExtFldPadExact) -> NwtnPgon
               continue epoch;
             end if;
             newF2 := ext<F2 | m>;
-            // TODO: the current approach factorizes f over newF2 and selects a factor; a better approach is to take ri=&*[r:r in rfacs[1..i]], fi=ri(x-E.1), fi being the minimal polynomial of E.1 over F(pi), express the coefficients of fi/F(pi) in terms of pi/F (using linear algebra), and use this to find fi/newF2 by mapping pi to newF2.1
-            ffacs, _, certs := ExactpAdics_Factorization(PolynomialRing(newF2) ! f : DegreeMle:=Ds[i], DegreeGe:=Ds[i], Limit:=1, Extensions);
-            if #ffacs eq 0 then
-              continue epoch;
-            end if;
-            ffac := ffacs[1][1];
-            assert Degree(ffac) eq Ds[i];
-            newE2 := certs[1]`Extension;
-            r := Roots(PolynomialRing(newE2) ! ffac)[1][1];
-            newEtoE2 := map<E -> newE2 | x :-> &+[cs[i] * r^(i-1) : i in [1..#cs]] where cs:=Eltseq(x)>;
+            case Alg:
+            when "Factorize":
+              // TODO: the current approach factorizes f over newF2 and selects a factor; a better approach is to take ri=&*[r:r in rfacs[1..i]], fi=ri(x-E.1), fi being the minimal polynomial of E.1 over F(pi), express the coefficients of fi/F(pi) in terms of pi/F (using linear algebra), and use this to find fi/newF2 by mapping pi to newF2.1
+              ffacs := ExactpAdics_Factorization(PolynomialRing(newF2) ! f : DegreeMle:=dE, DegreeGe:=dE, Limit:=1);
+              if #ffacs eq 0 then
+                continue epoch;
+              end if;
+              ffac := ffacs[1][1];
+              assert Degree(ffac) eq dE;
+              assert IsEisenstein(ffac);
+              newE2 := ext<newF2 | ffac>;
+              r := newE2.1;
+              newEtoE2 := map<E -> newE2 | x :-> &+[cs[i] * r^(i-1) : i in [1..#cs]] where cs:=Eltseq(x)>;
+            when "LA":
+              xF2 := EpochApproximation(F2, epoch);
+              xE2 := EpochApproximation(E2, epoch);
+              xnewF2 := EpochApproximation(newF2, epoch);
+              V := VectorSpace(xF2, d*dE);
+              vmap := map<xE2 -> V | x:->V!Eltseq(x), y:->xE2!Eltseq(y)>;
+              xE2pi := EpochApproximation(EtoE2(E.1), epoch);
+              vec := vmap(xE2pi^dE);
+              mat := Matrix([vmap(xE2pi^i * xpi2^j) : j in [0..d-1], i in [0..dE-1]]);
+              if IsWeaklyZero(Determinant(mat)) then
+                continue epoch;
+              end if;
+              coeffs := Eltseq(vec * mat^-1);
+              xffac := Polynomial([xnewF2| i eq dE select 1 else -&+[xnewF2!coeffs[i*d+j+1] * xnewF2.1^j : j in [0..d-1]] : i in [0..dE]]);
+              ffac := WeakApproximation(PolynomialRing(newF2) ! xffac);
+              assert Degree(ffac) eq dE;
+              if not IsEisenstein(ffac) then
+                continue epoch;
+              end if;
+              newE2 := ext<newF2 | ffac>;
+              rs := Roots(ChangeRing(DefiningPolynomial(E2), newE2));
+              if #rs eq 0 then
+                continue epoch;
+              end if;
+              r := rs[1][1];
+              newEtoE2 := map<E -> newE2 | x :-> &+[cs[i] * r^(i-1) : i in [1..#cs]] where cs:=Eltseq(x)>;
+            else
+              error "invalid Alg:", Alg;
+            end case;
             F2 := newF2;
             E2 := newE2;
             EtoE2 := newEtoE2;
