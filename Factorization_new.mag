@@ -1,7 +1,7 @@
 ///# Univariate polynomials
 ///## Root-finding and factorization
 
-import "common/Factorization_new.mag": CERT, STATE, BRANCH, APR, WVAL, factorize, irred_done_branches, add_flatten_errs, absdeg, mb_has_value, mb_seq, mb_approximate_factor, br_lift, approximate_factor, base_flatten, elt_with_valuation, elt_with_residue_class, absramdeg, absresdeg, mb_eisenstein_poly, resfield, not_implemented, eisensteinPolyDefinesUniqueExtension;
+import "common/Factorization_new.mag": CERT, STATE, BRANCH, APR, factorize, irred_done_branches, add_flatten_errs, absdeg, mb_has_value, mb_seq, mb_approximate_factor, br_lift, approximate_factor, base_flatten, elt_with_valuation, elt_with_residue_class, absramdeg, absresdeg, mb_eisenstein_poly, resfield, not_implemented, eisensteinPolyDefinesUniqueExtension;
 
 function state_make_exact(f)
   assert Type(f) eq RngUPolElt_FldPadExact;
