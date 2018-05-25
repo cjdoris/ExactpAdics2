@@ -18,6 +18,17 @@ It differs from [the first implementation (`ExactpAdics`)](https://github.com/cj
 ```
 
 ### Pending release
+
+### v0.2.0
+```
+~ `RamificationFiltration` now uses linear algebra instead of factorization, which is faster.
+~ `BringToEpoch` is reimplemented more simply, and is faster.
++ Adds `CanBringToEpoch`, `UninitializedCopy`, `WithDependencies`, `NumberOfNames`
++ Adds `DefiningPolynomial` for extensions (but only implemented for single-hop extensions)
++ Adds `Safe` parameters to functions which need them to make them safe for `WithDependencies` with the `Fast` option.
+```
+
+### v0.1.0
 ```
 Initial release
 ```
