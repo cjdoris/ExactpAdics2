@@ -283,6 +283,16 @@ The prime of `F`.
 The defining polynomial of `F`.
 
 
+<a id="DefiningPolynomial-2"></a><a id="DefiningPolynomial--FldPadExact--etc"></a><a id="DefiningPolynomial--FldPadExact--FldPadExact"></a>
+> **DefiningPolynomial** (E :: *FldPadExact*, F :: *FldPadExact*)
+> 
+> -> *RngUPolElt_FldPadExact*
+> {:.ret}
+{:.intrinsic}
+
+A defining polynomial for `E`/`F`.
+
+
 <a id="Valuation"></a><a id="Valuation--FldPadExactElt"></a>
 > **Valuation** (x :: *FldPadExactElt*)
 > 
@@ -355,6 +365,8 @@ Negate, add, subtract, multiply, divide, power, sum and product.
 
 
 
+**Parameters**
+- `Safe := false`: (Division and powering only.) When true, this may be used as an intermediate variable in [`WithDependencies`](internals#WithDependencies) with the `Fast` option.
 
 <a id="ShiftValuation"></a><a id="ShiftValuation--FldPadExactElt--etc"></a><a id="ShiftValuation--FldPadExactElt--RngIntElt"></a>
 > **ShiftValuation** (x :: *FldPadExactElt*, m :: *RngIntElt*)

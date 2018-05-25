@@ -858,6 +858,7 @@ intrinsic '*'(x, y :: FldPadExactElt) -> .
 end intrinsic;
 
 ///ditto
+///param Safe:=false (Division and powering only.) When true, this may be used as an intermediate variable in [`WithDependencies`](internals#WithDependencies) with the `Fast` option.
 intrinsic '/'(x :: FldPadExactElt, y :: FldPadExactElt : Safe:=false) -> FldPadExactElt
   {Divide.}
   ok, F := ExistsCoveringStructure(Parent(x), Parent(y));

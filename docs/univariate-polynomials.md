@@ -221,6 +221,8 @@ Negate, add, subtract, multiply, divide by scalar, power, sum, product.
 
 
 
+**Parameters**
+- `Safe := false`: When true, this may be used as an intermediate variable in [`WithDependencies`](internals#WithDependencies) with the `Fast` option.
 
 <a id="div"></a><a id="div--RngUPolElt_FldPadExact--etc"></a><a id="div--RngUPolElt_FldPadExact--RngUPolElt_FldPadExact"></a><a id="mod"></a><a id="mod--RngUPolElt_FldPadExact--etc"></a><a id="mod--RngUPolElt_FldPadExact--RngUPolElt_FldPadExact"></a>
 > **\'div\'** (f :: *RngUPolElt_FldPadExact*, g :: *RngUPolElt_FldPadExact*)
@@ -235,6 +237,8 @@ Division and remainder.
 
 
 
+**Parameters**
+- `Safe := false`: When true, this may be used as an intermediate variable in [`WithDependencies`](internals#WithDependencies) with the `Fast` option.
 
 ### Derivative
 {:#derivative}
@@ -317,6 +321,8 @@ True if `f` is inertial. That is, it is integral, the leading coefficient has va
 
 The discriminant of `f`.
 
+**Parameters**
+- `Safe := false`: When true, this may be used as an intermediate variable in [`WithDependencies`](internals#WithDependencies) with the `Fast` option.
 
 <a id="Resultant"></a><a id="Resultant--RngUPolElt_FldPadExact--etc"></a><a id="Resultant--RngUPolElt_FldPadExact--RngUPolElt_FldPadExact"></a>
 > **Resultant** (f :: *RngUPolElt_FldPadExact*, g :: *RngUPolElt_FldPadExact*)
@@ -327,6 +333,8 @@ The discriminant of `f`.
 
 The resultant of `f` and `g`.
 
+**Parameters**
+- `Safe := false`: When true, this may be used as an intermediate variable in [`WithDependencies`](internals#WithDependencies) with the `Fast` option.
 
 ## Newton polygon
 {:#newton-polygon}
@@ -445,6 +453,18 @@ Called internally by `Factorization`.
 - `DegreeGe := 1`: Only returns factors whose degree is at least this.
 - `Limit`: A bound on the number of factors returned.
 
+<a id="ExactpAdics_Roots"></a><a id="ExactpAdics_Roots--RngUPolElt_FldPadExact"></a>
+> **ExactpAdics_Roots** (f :: *RngUPolElt_FldPadExact*)
+> 
+> -> []
+> {:.ret}
+{:.intrinsic}
+
+Called internally by `Roots`.
+
+**Parameters**
+- `Limit`
+
 <a id="ExactpAdics_Factorization-2"></a><a id="ExactpAdics_Factorization--RngUPolElt-FldPad"></a>
 > **ExactpAdics_Factorization** (f :: *RngUPolElt*[*FldPad*])
 > 
@@ -464,16 +484,6 @@ Our implementation of an OM factorization algorithm for Magma's builtin p-adics.
 - `DegreeMle := 0`: Only returns factors whose degree divides this, i.e. the degree is "multiplicatively less than" this.
 - `DegreeGe := 1`: Only returns factors whose degree is at least this.
 - `Limit`: A bound on the number of factors returned.
-
-<a id="ExactpAdics_Roots"></a><a id="ExactpAdics_Roots--RngUPolElt_FldPadExact"></a>
-> **ExactpAdics_Roots** (f :: *RngUPolElt_FldPadExact*)
-> 
-> -> []
-> {:.ret}
-{:.intrinsic}
-
-Called internally by `Roots`.
-
 
 <a id="ExactpAdics_Roots-2"></a><a id="ExactpAdics_Roots--RngUPolElt-FldPad"></a>
 > **ExactpAdics_Roots** (f :: *RngUPolElt*[*FldPad*])

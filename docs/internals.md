@@ -30,18 +30,38 @@ There are two direct subtypes of `AnyPadExact`: `StrPadExact` representing a str
 ## Generic intrinsics
 {:#generic-intrinsics}
 
-<a id="BringToEpoch"></a><a id="BringToEpoch--seq-AnyPadExact--etc"></a><a id="BringToEpoch--seq-AnyPadExact--RngIntElt"></a>
+<a id="BringToEpoch"></a><a id="BringToEpoch--AnyPadExact--etc"></a><a id="BringToEpoch--AnyPadExact--RngIntElt"></a>
+> **BringToEpoch** (x :: *AnyPadExact*, n :: *RngIntElt*)
+{:.intrinsic}
+
+Brings `x` to epoch `n`.
+
+
+<a id="BringToEpoch-2"></a><a id="BringToEpoch--seq-AnyPadExact--etc"></a><a id="BringToEpoch--seq-AnyPadExact--RngIntElt"></a>
 > **BringToEpoch** (xs :: [*AnyPadExact*], n :: *RngIntElt*)
 {:.intrinsic}
 
 Brings each `x` in `xs` to epoch `n`.
 
 
-<a id="BringToEpoch-2"></a><a id="BringToEpoch--AnyPadExact--etc"></a><a id="BringToEpoch--AnyPadExact--RngIntElt"></a>
-> **BringToEpoch** (x :: *AnyPadExact*, n :: *RngIntElt*)
+<a id="CanBringToEpoch"></a><a id="CanBringToEpoch--AnyPadExact--etc"></a><a id="CanBringToEpoch--AnyPadExact--RngIntElt"></a>
+> **CanBringToEpoch** (x :: *AnyPadExact*, n :: *RngIntElt*)
+> 
+> -> *BoolElt*
+> {:.ret}
 {:.intrinsic}
 
-Brings `x` to epoch `n`.
+Tries to bring `x` to epoch `n`. Returns `true` if successful, or `false` if the max_epoch of something is exceeded.
+
+
+<a id="CanBringToEpoch-2"></a><a id="CanBringToEpoch--seq-AnyPadExact--etc"></a><a id="CanBringToEpoch--seq-AnyPadExact--RngIntElt"></a>
+> **CanBringToEpoch** (xs :: [*AnyPadExact*], n :: *RngIntElt*)
+> 
+> -> *BoolElt*
+> {:.ret}
+{:.intrinsic}
+
+Tries to bring each `x` in `xs` to epoch `n`. Returns `true` if successful, or `false` if the max_epoch of something is exceeded.
 
 
 <a id="EpochApproximation"></a><a id="EpochApproximation--seq-AnyPadExact--etc"></a><a id="EpochApproximation--seq-AnyPadExact--RngIntElt"></a>
@@ -120,7 +140,7 @@ True if there is an epoch of `x` such that `pred(x)` is true. If so, returns it.
 > {:.ret}
 {:.intrinsic}
 
-True if there is an epoch of `x` such that `pred(xx)` is true, where `xx` is the corresponding approximation. If so, returns it.
+True if there is an epoch of `x` such that `pred(xx)` is true, where `xx` is the corresponding approximation. If so, returns it. False if `max_epoch` is ever exceeded.
 
 **Parameters**
 - `FromTop`
@@ -192,6 +212,21 @@ This is called by [`BringToEpoch`](#BringToEpoch) and [`InterpolateUpTo`](#Inter
 It checks the new approximation is valid by calling [`IsValidApproximation`](#IsValidApproximation), then calls [`SetApproximationHook`](#SetApproximationHook), then calls [`InterpolateEpochs`](#InterpolateEpochs) if necessary to get missing approximations below `n`, and then finally updates the list of approximations.
 
 
+<a id="WithDependencies"></a><a id="WithDependencies--AnyPadExact--etc"></a><a id="WithDependencies--AnyPadExact--List"></a>
+> **WithDependencies** (x :: *AnyPadExact*, ds :: *List*)
+> 
+> -> *AnyPadExact*
+> {:.ret}
+{:.intrinsic}
+
+A copy of `x` with the direct dependencies `ds`.
+
+This is useful if `x` is some complex expression in `ds` and you don't care about the intermediate expressions. It can provide a small speed-up in computing approximations for `x`.
+
+
+**Parameters**
+- `Fast := false`: When true, this in effect eliminates the intermediate variables entirely, often resulting in a large speed-up in computing approximations for x. It should not be used when there is an intermediate variable which may alter its cached approximation, since this cache is not considered. This includes operations such as division and polynomial discriminant; many such operations have a `Safe` parameter which makes them safe to use in this context. Note that the `min_epoch` of the copy of x will be the maximum of the `min_epoch` of the intermediate variables; similarly the `max_epoch` will be the minimum over intermediate variables.
+
 ## Overloadable intrinsics
 {:#overloadable-intrinsics}
 
@@ -255,6 +290,36 @@ True if `xx` is a valid approximation of `x` at epoch `n`. If not, also returns 
 {:.intrinsic}
 
 For p-adic elements, this checks that the approximation is an element of the approximation of the parent, and that it is weakly equal to the current best approximation for `x`.
+
+
+<a id="UninitializedCopy"></a><a id="UninitializedCopy--AnyPadExact"></a>
+> **UninitializedCopy** (x :: *AnyPadExact*)
+> 
+> -> *AnyPadExact*
+> {:.ret}
+{:.intrinsic}
+
+An uninitialized copy of `x`.
+
+
+<a id="UninitializedCopy-2"></a><a id="UninitializedCopy--StrPadExact"></a>
+> **UninitializedCopy** (x :: *StrPadExact*)
+> 
+> -> *StrPadExact*
+> {:.ret}
+{:.intrinsic}
+
+For structures, we raise a "cannot copy p-adic structures" error, since equality of structures is defined by equality of id, and this would break it.
+
+
+<a id="UninitializedCopy-3"></a><a id="UninitializedCopy--PadExactElt"></a>
+> **UninitializedCopy** (x :: *PadExactElt*)
+> 
+> -> *PadExactElt*
+> {:.ret}
+{:.intrinsic}
+
+For elements, we just need to copy the parent.
 
 
 ## Version

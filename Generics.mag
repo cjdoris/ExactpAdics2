@@ -282,74 +282,6 @@ intrinsic SetApproximation(x :: AnyPadExact, n :: RngIntElt, xx)
   end if;
 end intrinsic;
 
-///## Overloadable intrinsics
-///
-/// The following intrinsics are expected to be overloaded for type-specific behaviour.
-
-/// Assuming we have an approximation for `x` at epoch `n1`, and `xx2` is the approximation at epoch `n2`, returns approximations for the intermediate epochs `[n1+1..n2-1]`. Usually this will do something simple such as just lowering the precision of `xx2` to match each intermediate epoch.
-intrinsic InterpolateEpochs(x :: AnyPadExact, n1 :: RngIntElt, n2 :: RngIntElt, xx2) -> List
-  {The approximations for epochs [n1+1..n2-1].}
-  if n1+1 ge x`min_epoch then
-    return [* GetApproximation(x`get_approximation, n, [*d`approximations[n] : d in x`dependencies*]) : n in [n1+1..n2-1] *];
-  end if;
-  error "not implemented: InterpolateEpochs:", Type(x);
-end intrinsic;
-
-/// Given a `get_approximation` value `get`, an epoch `n` and a list of approximations of dependencies at epoch `n`, returns an approximation at epoch `n`.
-intrinsic GetApproximation(get, n :: RngIntElt, xds :: List) -> .
-  {Gets an approximation using get.}
-  error "not implemented: GetApproximation:", Type(get);
-end intrinsic;
-
-/// Currently, `get_approximation` is always just a function, and so this just calls it.
-intrinsic GetApproximation(get :: UserProgram, n :: RngIntElt, xds :: List) -> .
-  {"}
-  return get(n, xds);
-end intrinsic;
-
-/// Overload this to perform some action when we are about to set the approximation of `x` at epoch `n` to `xx`.
-/// 
-/// For example, this is used by `RngUPol_FldPadExact` to ensure all its approximations have the same variable name.
-intrinsic SetApproximationHook(x :: AnyPadExact, n :: RngIntElt, ~xx)
-  {Called by `SetApproximation`.}
-  return;
-end intrinsic;
-
-intrinsic IsValidApproximation(x :: AnyPadExact, n :: RngIntElt, xx) -> BoolElt, MonStgElt
-  {True if xx is a valid approximation of x at epoch n. If not, also returns an error message.}
-  return true, _;
-end intrinsic;
-
-/// For p-adic elements, this checks that the approximation is an element of the approximation of the parent, and that it is weakly equal to the current best approximation for `x`.
-intrinsic IsValidApproximation(x :: PadExactElt, n :: RngIntElt, xx) -> BoolElt, MonStgElt
-  {"}
-  if Parent(xx) cmpne EpochApproximation(Parent(x), n) then
-    return false, "wrong parent";
-  elif #x`approximations ne 0 and not WEQ(BestApproximation(x), xx) then
-    return false, "inconsistent";
-  else
-    return true, _;
-  end if;
-end intrinsic;
-
-intrinsic UninitializedCopy(x :: AnyPadExact) -> AnyPadExact
-  {An uninitialized copy of x.}
-  error "not implemented: UninitializedCopy:", Type(x);
-end intrinsic;
-
-intrinsic UninitializedCopy(x :: StrPadExact) -> StrPadExact
-  {"}
-  // We disallow copying of p-adic structures, because equality is defined in terms of id, and the copy would have a different id
-  error "cannot copy p-adic structures";
-end intrinsic;
-
-intrinsic UninitializedCopy(x :: PadExactElt) -> PadExactElt
-  {"}
-  z := New(Type(x));
-  z`parent := x`parent;
-  return z;
-end intrinsic;
-
 // inserts into deps the dependency [*x, Max(n,x`min_epoch)*] and recurses
 procedure _backtrack(~deps, x, n, terminal_ids)
   // insert the dependency, if required
@@ -486,6 +418,77 @@ intrinsic WithDependencies(x :: AnyPadExact, ds :: List : Fast:=false) -> AnyPad
     end function;
   end if;
   Init(z);
+  return z;
+end intrinsic;
+
+///## Overloadable intrinsics
+///
+/// The following intrinsics are expected to be overloaded for type-specific behaviour.
+
+/// Assuming we have an approximation for `x` at epoch `n1`, and `xx2` is the approximation at epoch `n2`, returns approximations for the intermediate epochs `[n1+1..n2-1]`. Usually this will do something simple such as just lowering the precision of `xx2` to match each intermediate epoch.
+intrinsic InterpolateEpochs(x :: AnyPadExact, n1 :: RngIntElt, n2 :: RngIntElt, xx2) -> List
+  {The approximations for epochs [n1+1..n2-1].}
+  if n1+1 ge x`min_epoch then
+    return [* GetApproximation(x`get_approximation, n, [*d`approximations[n] : d in x`dependencies*]) : n in [n1+1..n2-1] *];
+  end if;
+  error "not implemented: InterpolateEpochs:", Type(x);
+end intrinsic;
+
+/// Given a `get_approximation` value `get`, an epoch `n` and a list of approximations of dependencies at epoch `n`, returns an approximation at epoch `n`.
+intrinsic GetApproximation(get, n :: RngIntElt, xds :: List) -> .
+  {Gets an approximation using get.}
+  error "not implemented: GetApproximation:", Type(get);
+end intrinsic;
+
+/// Currently, `get_approximation` is always just a function, and so this just calls it.
+intrinsic GetApproximation(get :: UserProgram, n :: RngIntElt, xds :: List) -> .
+  {"}
+  return get(n, xds);
+end intrinsic;
+
+/// Overload this to perform some action when we are about to set the approximation of `x` at epoch `n` to `xx`.
+/// 
+/// For example, this is used by `RngUPol_FldPadExact` to ensure all its approximations have the same variable name.
+intrinsic SetApproximationHook(x :: AnyPadExact, n :: RngIntElt, ~xx)
+  {Called by `SetApproximation`.}
+  return;
+end intrinsic;
+
+intrinsic IsValidApproximation(x :: AnyPadExact, n :: RngIntElt, xx) -> BoolElt, MonStgElt
+  {True if xx is a valid approximation of x at epoch n. If not, also returns an error message.}
+  return true, _;
+end intrinsic;
+
+/// For p-adic elements, this checks that the approximation is an element of the approximation of the parent, and that it is weakly equal to the current best approximation for `x`.
+intrinsic IsValidApproximation(x :: PadExactElt, n :: RngIntElt, xx) -> BoolElt, MonStgElt
+  {"}
+  if Parent(xx) cmpne EpochApproximation(Parent(x), n) then
+    return false, "wrong parent";
+  elif #x`approximations ne 0 and not WEQ(BestApproximation(x), xx) then
+    return false, "inconsistent";
+  else
+    return true, _;
+  end if;
+end intrinsic;
+
+// An uninitialized copy of x. Default implementation raises a not implemented error.
+intrinsic UninitializedCopy(x :: AnyPadExact) -> AnyPadExact
+  {An uninitialized copy of x.}
+  error "not implemented: UninitializedCopy:", Type(x);
+end intrinsic;
+
+/// For structures, we raise a "cannot copy p-adic structures" error, since equality of structures is defined by equality of id, and this would break it.
+intrinsic UninitializedCopy(x :: StrPadExact) -> StrPadExact
+  {"}
+  // We disallow copying of p-adic structures, because equality is defined in terms of id, and the copy would have a different id
+  error "cannot copy p-adic structures";
+end intrinsic;
+
+/// For elements, we just need to copy the parent.
+intrinsic UninitializedCopy(x :: PadExactElt) -> PadExactElt
+  {"}
+  z := New(Type(x));
+  z`parent := x`parent;
   return z;
 end intrinsic;
 
