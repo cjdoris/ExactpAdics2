@@ -45,68 +45,64 @@ declare attributes PadExactElt
 // valuation of a p-adic object
 declare type ValPadExact;
 
-procedure bring_to_epoch(xs, n)
-  assert n ge 1;
-  // recursively find all dependencies
-  todo := [* <x, n> : x in xs *];
-  deps := [* *];
-  ids := {@ Z| @};
-  while #todo ne 0 do
-    // pop an item from the todo list
-    x, n := Explode(todo[1]);
-    todo := todo[2..#todo];
-    // check if we have exceeded the max_epoch
-    if assigned x`max_epoch and n gt x`max_epoch then
-      error "precision error: max_epoch exceeded";
-    end if;
-    // check if it needs to be updated
-    if #x`approximations lt n then
-      // check if it already has a dependency
-      if x`id in ids then
-        // check if it needs to be increased
-        i := Index(ids, x`id);
-        if n gt deps[i][2] then
-          deps[i][2] := n;
-          for d in x`dependencies do
-            assert d`id lt x`id;
-            Append(~todo, <d, n>);
-          end for;
-        end if;
-      else
-        // if not, create a new dependency
-        n2 := Max(n, x`min_epoch);
-        Include(~ids, x`id);
-        Append(~deps, <x, n2>);
-        for d in x`dependencies do
-          Append(~todo, <d, n2>);
-        end for;
-      end if;
-    end if;
-  end while;
-  // sort the dependencies
-  deps_ids := [Z| d[1]`id : d in deps];
-  Sort(~deps_ids, ~permut);
-  deps := [* deps[i^permut] : i in [1..#deps] *];
-  assert forall{i : i in [2..#deps] | deps[i-1][1]`id lt deps[i][1]`id};
-  // satisfy the dependencies
-  for i in [1..#deps] do
-    x, n := Explode(deps[i]);
-    assert n gt #x`approximations and n ge x`min_epoch;
+procedure bring_to_epoch(x, n)
+  if #x`approximations lt n then
+    n := Max(n, x`min_epoch);
+    error if assigned x`max_epoch and n gt x`max_epoch, "precision error: max_epoch exceeded";
+    for d in x`dependencies do
+      bring_to_epoch(d, n);
+    end for;
     xds := [* d`approximations[n] : d in x`dependencies *];
     xx := GetApproximation(x`get_approximation, n, xds);
     SetApproximation(x, n, xx);
     assert #x`approximations eq n;
-  end for;
+  end if;  
 end procedure;
 
-intrinsic BringToEpoch(xs :: [AnyPadExact], n :: RngIntElt)
-  {Brings each `x` in `xs` to epoch `n`.}
-  bring_to_epoch(xs, n);
-end intrinsic;
+function can_bring_to_epoch(x, n)
+  if #x`approximations lt n then
+    n := Max(n, x`min_epoch);
+    if assigned x`max_epoch and n gt x`max_epoch then
+      return false;
+    end if;
+    for d in x`dependencies do
+      if not can_bring_to_epoch(d, n) then
+        return false;
+      end if;
+    end for;
+    xds := [* d`approximations[n] : d in x`dependencies *];
+    xx := GetApproximation(x`get_approximation, n, xds);
+    SetApproximation(x, n, xx);
+    assert #x`approximations eq n;
+  end if;  
+  return true;
+end function;
 
 intrinsic BringToEpoch(x :: AnyPadExact, n :: RngIntElt)
   {Brings x to epoch n.}
-  bring_to_epoch([*x*], n);
+  bring_to_epoch(x, n);
+end intrinsic;
+
+intrinsic BringToEpoch(xs :: [AnyPadExact], n :: RngIntElt)
+  {Brings each `x` in `xs` to epoch `n`.}
+  for x in xs do
+    bring_to_epoch(x, n);
+  end for;
+end intrinsic;
+
+intrinsic CanBringToEpoch(x :: AnyPadExact, n :: RngIntElt) -> BoolElt
+  {Tries to bring x to epoch n. Returns `true` if successful, or `false` if the max_epoch of something is exceeded.}
+  return can_bring_to_epoch(x, n);
+end intrinsic;
+
+intrinsic CanBringToEpoch(xs :: [AnyPadExact], n :: RngIntElt) -> BoolElt
+  {Tries to bring each `x` in `xs` to epoch `n`. Returns `true` if successful, or `false` if the max_epoch of something is exceeded.}
+  for x in xs do
+    if not can_bring_to_epoch(x, n) then
+      return false;
+    end if;
+  end for;
+  return true;
 end intrinsic;
 
 intrinsic EpochApproximation(xs :: [AnyPadExact], n :: RngIntElt) -> []
