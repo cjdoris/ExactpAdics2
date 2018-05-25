@@ -332,3 +332,155 @@ intrinsic IsValidApproximation(x :: PadExactElt, n :: RngIntElt, xx) -> BoolElt,
   end if;
 end intrinsic;
 
+intrinsic UninitializedCopy(x :: AnyPadExact) -> AnyPadExact
+  {An uninitialized copy of x.}
+  error "not implemented: UninitializedCopy:", Type(x);
+end intrinsic;
+
+intrinsic UninitializedCopy(x :: StrPadExact) -> StrPadExact
+  {"}
+  // We disallow copying of p-adic structures, because equality is defined in terms of id, and the copy would have a different id
+  error "cannot copy p-adic structures";
+end intrinsic;
+
+intrinsic UninitializedCopy(x :: PadExactElt) -> PadExactElt
+  {"}
+  z := New(Type(x));
+  z`parent := x`parent;
+  return z;
+end intrinsic;
+
+// inserts into deps the dependency [*x, Max(n,x`min_epoch)*] and recurses
+procedure _backtrack(~deps, x, n, terminal_ids)
+  // insert the dependency, if required
+  ok, dep := IsDefined(deps, x`id);
+  if not ok then
+    n := Max(n, x`min_epoch);
+    deps[x`id] := [* x, n *];
+  elif dep[2] lt n then
+    deps[x`id][2] := n;
+  else
+    return;
+  end if;
+  // if we get to here, we added a new dependency, so recurse
+  if x`id notin terminal_ids then
+    for d in x`dependencies do
+      _backtrack(~deps, d, n, terminal_ids);
+    end for;
+  end if;
+end procedure;
+
+// inserts into deps the dependency x and recurses
+procedure _backtrack_simple(~deps, x, terminal_ids)
+  // insert the dependency, if required
+  if IsDefined(deps, x`id) then
+    return;
+  else
+    deps[x`id] := x;
+  end if;
+  // if we get to here, we added a new dependency, so recurse
+  if x`id notin terminal_ids then
+    for d in x`dependencies do
+      _backtrack_simple(~deps, d, terminal_ids);
+    end for;
+  end if;
+end procedure;
+
+function backtrack(x, terminal_ids : simple:=false)
+  deps := AssociativeArray(Z);
+  if simple then
+    _backtrack_simple(~deps, x, terminal_ids);
+  else
+    _backtrack(~deps, x, 0, terminal_ids);
+  end if;
+  return [* deps[id] : id in Sort(Setseq(Keys(deps))) *];
+end function;
+
+declare verbose ExactpAdics_WithDependencies, 1;
+
+intrinsic WithDependencies(x :: AnyPadExact, ds :: List : Fast:=false) -> AnyPadExact
+  {A copy of x with the direct dependencies ds.}
+  require forall{d : d in ds | ISA(Type(d), AnyPadExact) and d`id le x`id}: "ds must be dependencies of x";
+  if [Z| d`id : d in x`dependencies] eq [Z| d`id : d in ds] then
+    vprint ExactpAdics_WithDependencies: "WithDependencies: same dependencies";
+    // special case: same list of dependencies
+    return x;
+  end if;
+  z := UninitializedCopy(x);
+  z`dependencies := ds;
+  i := Index([Z| d`id : d in ds], x`id);
+  if i ne 0 then
+    vprint ExactpAdics_WithDependencies: "WithDependencies: x in ds";
+    // special case: x in ds
+    z`get_approximation := func<n, xds | xds[i]>;
+  elif Fast then
+    vprint ExactpAdics_WithDependencies: "WithDependencies: Fast";
+    // precompute dependencies back to ds
+    deps := backtrack(x, {d`id : d in ds} : simple);
+    vprint ExactpAdics_WithDependencies: "WithDependencies: deps =", deps;
+    assert deps[#deps]`id eq x`id;
+    // for each dependency not in the original list, make a step consisting of the indices of its dependencies and its get_approximation function
+    dids := {Z| d`id : d in ds};
+    assert x`id notin dids;
+    idxs := AssociativeArray(Z);
+    for i in [1..#ds] do
+      idxs[ds[i]`id] := i;
+    end for;
+    steps := [**];
+    for d in deps do
+      if d`id notin dids then
+        Append(~steps, [* [* idxs[d2`id] : d2 in d`dependencies *], d`get_approximation *]);
+        idxs[d`id] := #ds + #steps;
+      end if;
+    end for;
+    vprint ExactpAdics_WithDependencies: "WithDependencies: steps =", steps;
+    // this executes the steps in turn, to extend the list of approximations up to x
+    z`get_approximation := function (n, xds)
+      for step in steps do
+        idxs, ga := Explode(step);
+        xds2 := [* xds[i] : i in idxs *];
+        xd := GetApproximation(ga, n, xds2);
+        Append(~xds, xd);
+      end for;
+      return xds[#xds];
+    end function;
+    // aggregate the min_epoch and max_epoch of all dependencies
+    z`min_epoch := Max([Z| d`min_epoch : d in deps]);
+    max_epochs := [Z| d`max_epoch : d in deps | assigned d`max_epoch];
+    if #max_epochs ne 0 then
+      z`max_epoch := Min(max_epochs);
+    end if;
+  elif {Z| d`id : d in x`dependencies} subset {Z| d`id : d in ds} then
+    vprint ExactpAdics_WithDependencies: "WithDependencies: more dependencies";
+    // special case: expanding the set of dependencies
+    dids := [Z| d`id : d in ds];
+    idxs := [Z| Index(dids, d`id) : d in x`dependencies];
+    xga := x`get_approximation;
+    z`get_approximation := func<n, xds | GetApproximation(xga, n, [* xds[i] : i in idxs *])>;
+    z`min_epoch := x`min_epoch;
+    if assigned x`max_epoch then
+      z`max_epoch := x`max_epoch;
+    end if;
+  else
+    vprint ExactpAdics_WithDependencies: "WithDependencies: default";
+    // we precompute the dependencies back to ds, and use this in get_approximation to update them all in a single forward pass
+    deps := backtrack(x, {d`id : d in ds});
+    vprint ExactpAdics_WithDependencies: "WithDependencies: deps =", deps;
+    z`get_approximation := function (n, xds)
+      for dep in deps do
+        d, n0 := Explode(dep);
+        n2 := Max(n0, n);
+        if #d`approximations lt n2 then
+          error if assigned d`max_epoch and n2 gt d`max_epoch, "precision error: max_epoch exceeded";
+          xds2 := [* d2`approximations[n2] : d2 in d`dependencies *];
+          xd2 := GetApproximation(d`get_approximation, n2, xds2);
+          SetApproximation(d, n2, xd2);
+        end if;
+      end for;
+      return x`approximations[n];
+    end function;
+  end if;
+  Init(z);
+  return z;
+end intrinsic;
+
