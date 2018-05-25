@@ -47,6 +47,8 @@ Documentation is generated using [magdoc](https://cjdoris.github.io/magdoc) with
 magdoc.py -o docs FldPad.mag Ramification.mag HomFldPadExact.mag RngUPol.mag Factorization_new.mag common/Factorization_new.mag RngMPol.mag SetCart.mag ValFldPad.mag ValRngUPol.mag Generics.mag Version.mag State.mag DefaultAssociativeArray.mag Promotion.mag
 ```
 
+We don't currently document the `Utils.mag`.
+
 ### Potential improvements
 - If an output `z` is created from some inputs `x` and `y` say, but not directly so that there are some intermediate variables, then we could provide an intrinsic to make `z` depend directly on `x` and `y`. Such an intrinsic would essentially precompute the tree of dependencies of `z` as far as `x` and `y`, so that computing an approximation of `z` amounts to running through these dependencies in order. Hence this will save the work to compute the dependencies of `z` each time it is updated.
 - In the preceding idea, the intermediate variables still exist, and are essentially cached inside `z`. We could provide a stricter intrinsic which forgets the actual dependency variables, and only remembers crucial information such as their `get_approximation` function. Then the `get_approximation` function for `z` simply runs through the dependencies and computes their approximations, without any checking or chacheing which usually occurs. This could save time and memory.
