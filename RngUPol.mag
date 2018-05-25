@@ -67,7 +67,11 @@ intrinsic Print(f :: RngUPolElt_FldPadExact, lvl :: MonStgElt)
   when "Maximal":
     printf "%o", BestApproximation(f);
   else
-    printf "%o", CAP_PR(BestApproximation(f), 1);
+    if f`id eq Generator(Parent(f))`id then
+      printf "%o", BestApproximation(f);
+    else
+      printf "%o", CAP_PR(BestApproximation(f), 1);
+    end if;
   end case;
 end intrinsic;
 
