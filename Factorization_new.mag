@@ -190,14 +190,14 @@ intrinsic ExactpAdics_Factorization(f :: RngUPolElt_FldPadExact : Proof:=true, C
 end intrinsic;
 
 /// Called internally by `Roots`.
-intrinsic ExactpAdics_Roots(f :: RngUPolElt_FldPadExact) -> []
+intrinsic ExactpAdics_Roots(f :: RngUPolElt_FldPadExact : Limit:=Infinity()) -> []
   {The roots of f.}
   vprint ExactpAdics_Factorization: Cputime(), "start";
   R := Parent(f);
   K := BaseRing(R);
   f, nzeros := exact_remove_zeros(f);
   st := state_make_exact(f);
-  factorize(~st : JustRoots);
+  factorize(~st : JustRoots, Limit:=Limit);
   vprint ExactpAdics_Factorization: Cputime(), "check";
   brs := irred_done_branches(st);
   assert forall{br : br in brs | (absdeg(br) eq 1) and (#br`basis eq 0)};
