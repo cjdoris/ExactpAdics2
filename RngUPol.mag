@@ -106,6 +106,12 @@ intrinsic '.'(R :: RngUPol_FldPadExact, i :: RngIntElt) -> RngUPolElt_FldPadExac
 end intrinsic;
 
 ///hide
+intrinsic NumberOfNames(R :: RngUPol_FldPadExact) -> RngIntElt
+  {The number of generators of R.}
+  return 1;
+end intrinsic;
+
+///hide
 intrinsic AssignNames(~R :: RngUPol_FldPadExact, names :: [MonStgElt])
   {Assigns names to the generators of R.}
   require #names le 1: "names must have length at most 1";

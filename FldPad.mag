@@ -520,6 +520,12 @@ intrinsic '.'(F :: FldPadExact, i :: RngIntElt) -> FldPadExactElt
 end intrinsic;
 
 ///hide
+intrinsic NumberOfNames(F :: FldPadExact) -> RngIntElt
+  {The number of generators of F.}
+  return 1;
+end intrinsic;
+
+///hide
 intrinsic AssignNames(~F :: FldPadExact, names :: [MonStgElt])
   {Assigns the names to the generators of F.}
   case F`xtype:

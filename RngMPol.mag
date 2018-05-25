@@ -123,6 +123,12 @@ intrinsic '.'(R :: RngMPol_FldPadExact, i :: RngIntElt) -> RngMPolElt_FldPadExac
 end intrinsic;
 
 ///hide
+intrinsic NumberOfNames(R :: RngMPol_FldPadExact) -> RngIntElt
+  {The number of generators of R.}
+  return Rank(R);
+end intrinsic;
+
+///hide
 intrinsic AssignNames(~R :: RngMPol_FldPadExact, names :: [MonStgElt])
   {Assigns names to the generators of R.}
   require #names le Rank(R): "number of names must be at most the rank";
