@@ -271,11 +271,10 @@ intrinsic RamificationFiltration(x :: ExtFldPadExact : Alg:="LA") -> NwtnPgon
                 continue epoch;
               end if;
               newE2 := ext<newF2 | ffac>;
-              rs := Roots(ChangeRing(DefiningPolynomial(E2), newE2));
-              if #rs eq 0 then
+              ok, r := IsHenselLiftable(ChangeRing(DefiningPolynomial(E2), newE2), newE2.1);
+              if not ok then
                 continue epoch;
               end if;
-              r := rs[1][1];
               newEtoE2 := map<E -> newE2 | x :-> &+[cs[i] * r^(i-1) : i in [1..#cs]] where cs:=Eltseq(x)>;
             else
               error "invalid Alg:", Alg;
