@@ -366,7 +366,7 @@ Negate, add, subtract, multiply, divide, power, sum and product.
 
 
 **Parameters**
-- `Safe := false`: (Division and powering only.) When true, this may be used as an intermediate variable in [`WithDependencies`](internals#WithDependencies) with the `Fast` option.
+- `Safe := false`: (Divide and power only.) When true, this may be used as an intermediate variable in [`WithDependencies`]({{site.baseurl}}/internals#WithDependencies) with the `Fast` option.
 
 <a id="ShiftValuation"></a><a id="ShiftValuation--FldPadExactElt--etc"></a><a id="ShiftValuation--FldPadExactElt--RngIntElt"></a>
 > **ShiftValuation** (x :: *FldPadExactElt*, m :: *RngIntElt*)

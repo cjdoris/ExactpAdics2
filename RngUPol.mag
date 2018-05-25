@@ -444,7 +444,7 @@ intrinsic '*'(x, y :: RngUPolElt_FldPadExact) -> .
 end intrinsic;
 
 ///ditto
-///param Safe:=false When true, this may be used as an intermediate variable in [`WithDependencies`](internals#WithDependencies) with the `Fast` option.
+///param Safe:=false When true, this may be used as an intermediate variable in [`WithDependencies`]({{site.baseurl}}/internals#WithDependencies) with the `Fast` option.
 intrinsic '/'(f :: RngUPolElt_FldPadExact, x :: FldPadExactElt : Safe:=false) -> RngUPolElt_FldPadExact
   {Divide by a scalar.}
   ok, F := ExistsCoveringStructure(BaseRing(f), Parent(x));
@@ -538,7 +538,7 @@ intrinsic '&*'(fs :: [RngUPolElt_FldPadExact]) -> RngUPolElt_FldPadExact
 end intrinsic;
 
 /// Division and remainder.
-///param Safe:=false When true, this may be used as an intermediate variable in [`WithDependencies`](internals#WithDependencies) with the `Fast` option.
+///param Safe:=false When true, this may be used as an intermediate variable in [`WithDependencies`]({{site.baseurl}}/internals#WithDependencies) with the `Fast` option.
 intrinsic 'div'(f :: RngUPolElt_FldPadExact, g :: RngUPolElt_FldPadExact : Safe:=false) -> RngUPolElt_FldPadExact
   {Exact divide.}
   ok, R := ExistsCoveringStructure(Parent(f), Parent(g));
@@ -711,7 +711,7 @@ end intrinsic;
 
 ///## Discriminant and resultant
 
-///param Safe:=false When true, this may be used as an intermediate variable in [`WithDependencies`](internals#WithDependencies) with the `Fast` option.
+///param Safe:=false When true, this may be used as an intermediate variable in [`WithDependencies`]({{site.baseurl}}/internals#WithDependencies) with the `Fast` option.
 intrinsic Discriminant(f :: RngUPolElt_FldPadExact : Safe:=false) -> FldPadExact
   {The discriminant of f.}
   if Safe or not assigned f`discriminant then
@@ -737,7 +737,7 @@ intrinsic Discriminant(f :: RngUPolElt_FldPadExact : Safe:=false) -> FldPadExact
   return f`discriminant;
 end intrinsic;
 
-///param Safe:=false When true, this may be used as an intermediate variable in [`WithDependencies`](internals#WithDependencies) with the `Fast` option.
+///param Safe:=false When true, this may be used as an intermediate variable in [`WithDependencies`]({{site.baseurl}}/internals#WithDependencies) with the `Fast` option.
 intrinsic Resultant(f :: RngUPolElt_FldPadExact, g :: RngUPolElt_FldPadExact : Safe:=false) -> FldPadExact
   {The resultant of f and g.}
   ok, R := ExistsCoveringStructure(Parent(f), Parent(g));

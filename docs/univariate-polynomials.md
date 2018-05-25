@@ -222,7 +222,7 @@ Negate, add, subtract, multiply, divide by scalar, power, sum, product.
 
 
 **Parameters**
-- `Safe := false`: When true, this may be used as an intermediate variable in [`WithDependencies`](internals#WithDependencies) with the `Fast` option.
+- `Safe := false`: When true, this may be used as an intermediate variable in [`WithDependencies`]({{site.baseurl}}/internals#WithDependencies) with the `Fast` option.
 
 <a id="div"></a><a id="div--RngUPolElt_FldPadExact--etc"></a><a id="div--RngUPolElt_FldPadExact--RngUPolElt_FldPadExact"></a><a id="mod"></a><a id="mod--RngUPolElt_FldPadExact--etc"></a><a id="mod--RngUPolElt_FldPadExact--RngUPolElt_FldPadExact"></a>
 > **\'div\'** (f :: *RngUPolElt_FldPadExact*, g :: *RngUPolElt_FldPadExact*)
@@ -238,7 +238,7 @@ Division and remainder.
 
 
 **Parameters**
-- `Safe := false`: When true, this may be used as an intermediate variable in [`WithDependencies`](internals#WithDependencies) with the `Fast` option.
+- `Safe := false`: When true, this may be used as an intermediate variable in [`WithDependencies`]({{site.baseurl}}/internals#WithDependencies) with the `Fast` option.
 
 ### Derivative
 {:#derivative}
@@ -322,7 +322,7 @@ True if `f` is inertial. That is, it is integral, the leading coefficient has va
 The discriminant of `f`.
 
 **Parameters**
-- `Safe := false`: When true, this may be used as an intermediate variable in [`WithDependencies`](internals#WithDependencies) with the `Fast` option.
+- `Safe := false`: When true, this may be used as an intermediate variable in [`WithDependencies`]({{site.baseurl}}/internals#WithDependencies) with the `Fast` option.
 
 <a id="Resultant"></a><a id="Resultant--RngUPolElt_FldPadExact--etc"></a><a id="Resultant--RngUPolElt_FldPadExact--RngUPolElt_FldPadExact"></a>
 > **Resultant** (f :: *RngUPolElt_FldPadExact*, g :: *RngUPolElt_FldPadExact*)
@@ -334,7 +334,7 @@ The discriminant of `f`.
 The resultant of `f` and `g`.
 
 **Parameters**
-- `Safe := false`: When true, this may be used as an intermediate variable in [`WithDependencies`](internals#WithDependencies) with the `Fast` option.
+- `Safe := false`: When true, this may be used as an intermediate variable in [`WithDependencies`]({{site.baseurl}}/internals#WithDependencies) with the `Fast` option.
 
 ## Newton polygon
 {:#newton-polygon}
