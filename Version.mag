@@ -3,7 +3,7 @@
 
 intrinsic ExactpAdics_Version() -> RngIntElt, RngIntElt, RngIntElt
   {The version of the ExactpAdics package, as major, minor and patch numbers.}
-  return 0,1,0;
+  return 0,2,0;
 end intrinsic;
 
 intrinsic ExactpAdics_Implementation() -> RngIntElt
