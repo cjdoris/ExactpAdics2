@@ -118,6 +118,7 @@ declare attributes ExtFldPadExact
   , degree
   , inertia_degree
   , ramification_degree
+  , defining_polynomial
   ;
 
 ///## Creation of p-adic fields
@@ -685,6 +686,28 @@ intrinsic DefiningPolynomial(F :: FldPadExact) -> RngUPolElt_FldPadExact
     F`defining_polynomial := pol;    
   end if;
   return F`defining_polynomial;
+end intrinsic;
+
+intrinsic DefiningPolynomial(E :: FldPadExact, F :: FldPadExact) -> RngUPolElt_FldPadExact
+  {A defining polynomial for E/F.}
+  return DefiningPolynomial(E / F);
+end intrinsic;
+
+///hide
+intrinsic DefiningPolynomial(X :: ExtFldPadExact) -> RngUPolElt_FldPadExact
+  {A defining polynomial for X.}
+  if not assigned X`defining_polynomial then
+    case #Tower(X):
+    when 1:
+      f := PolynomialRing(BaseField(X)) ! [0,1];
+    when 2:
+      f := DefiningPolynomial(TopField(X));
+    else
+      error "not implemented: DefiningPolynomial";
+    end case;
+    X`defining_polynomial := f;
+  end if;
+  return X`defining_polynomial;
 end intrinsic;
 
 intrinsic Valuation(x :: FldPadExactElt) -> ValFldPadExactElt
