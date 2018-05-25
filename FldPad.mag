@@ -858,14 +858,20 @@ intrinsic '*'(x, y :: FldPadExactElt) -> .
 end intrinsic;
 
 ///ditto
-intrinsic '/'(x :: FldPadExactElt, y :: FldPadExactElt) -> FldPadExactElt
+intrinsic '/'(x :: FldPadExactElt, y :: FldPadExactElt : Safe:=false) -> FldPadExactElt
   {Divide.}
   ok, F := ExistsCoveringStructure(Parent(x), Parent(y));
   require ok: "different fields";
   x2 := F ! x;
   y2 := F ! y;
-  EnsureAllApproximationsNonzero(y2);
   r := New(FldPadExactElt);
+  if Safe then
+    ok, n := IsDefinitelyNonzero(y : Minimize);
+    require ok: "y is weakly zero";
+    r`min_epoch := n;
+  else
+    EnsureAllApproximationsNonzero(y2);
+  end if;
   r`parent := F;
   r`dependencies := [* x2, y2 *];
   r`get_approximation := func<n, xds | xds[1] / xds[2]>;
@@ -886,16 +892,22 @@ intrinsic '/'(x, y :: FldPadExactElt) -> .
 end intrinsic;
 
 ///ditto
-intrinsic '^'(x :: FldPadExactElt, m :: RngIntElt) -> FldPadExactElt
+intrinsic '^'(x :: FldPadExactElt, m :: RngIntElt : Safe:=false) -> FldPadExactElt
   {Power.}
   F := Parent(x);
   if m eq 0 then
     return One(F);
   end if;
-  if m lt 0 then
-    EnsureAllApproximationsNonzero(x);
-  end if;
   r := New(FldPadExactElt);
+  if m lt 0 then
+    if Safe then
+      ok, n := IsDefinitelyNonzero(x);
+      require ok: "x is weakly zero";
+      r`min_epoch := n;
+    else
+      EnsureAllApproximationsNonzero(x);
+    end if;
+  end if;
   r`parent := F;
   r`dependencies := [* x *];
   r`get_approximation := func<n, xds | xds[1]^m>;

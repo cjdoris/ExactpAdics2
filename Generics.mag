@@ -398,6 +398,11 @@ end function;
 
 declare verbose ExactpAdics_WithDependencies, 1;
 
+/// A copy of x with the direct dependencies ds.
+/// 
+/// This is useful if x is some complex expression in ds and you don't care about the intermediate expressions. It can provide a small speed-up in computing approximations for x.
+/// 
+///param Fast:=false When true, this in effect eliminates the intermediate variables entirely, often resulting in a large speed-up in computing approximations for x. It should not be used when there is an intermediate variable which may alter its cached approximation, since this cache is not considered. This includes operations such as division and polynomial discriminant; many such operations have a `Safe` parameter which makes them safe to use in this context. Note that the `min_epoch` of the copy of x will be the maximum of the `min_epoch` of the intermediate variables; similarly the `max_epoch` will be the minimum over intermediate variables.
 intrinsic WithDependencies(x :: AnyPadExact, ds :: List : Fast:=false) -> AnyPadExact
   {A copy of x with the direct dependencies ds.}
   require forall{d : d in ds | ISA(Type(d), AnyPadExact) and d`id le x`id}: "ds must be dependencies of x";

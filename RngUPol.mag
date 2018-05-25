@@ -454,15 +454,21 @@ intrinsic '*'(x, y :: RngUPolElt_FldPadExact) -> .
 end intrinsic;
 
 ///ditto
-intrinsic '/'(f :: RngUPolElt_FldPadExact, x :: FldPadExactElt) -> RngUPolElt_FldPadExact
+intrinsic '/'(f :: RngUPolElt_FldPadExact, x :: FldPadExactElt : Safe:=false) -> RngUPolElt_FldPadExact
   {Divide by a scalar.}
   ok, F := ExistsCoveringStructure(BaseRing(f), Parent(x));
   require ok: "not coercible to a common field";
   R := PolynomialRing(F);
   f2 := R ! f;
   x2 := F ! x;
-  EnsureAllApproximationsNonzero(x2);
   g := New(RngUPolElt_FldPadExact);
+  if Safe then
+    ok, n := IsDefinitelyNonzero(x);
+    require ok: "x is weakly zero";
+    g`min_epoch := n;
+  else
+    EnsureAllApproximationsNonzero(x2);
+  end if;
   g`parent := R;
   g`dependencies := [* f2, x2 *];
   g`get_approximation := func<n, xds | xds[1] / xds[2]>;
@@ -541,14 +547,20 @@ intrinsic '&*'(fs :: [RngUPolElt_FldPadExact]) -> RngUPolElt_FldPadExact
 end intrinsic;
 
 /// Division and remainder.
-intrinsic 'div'(f :: RngUPolElt_FldPadExact, g :: RngUPolElt_FldPadExact) -> RngUPolElt_FldPadExact
+intrinsic 'div'(f :: RngUPolElt_FldPadExact, g :: RngUPolElt_FldPadExact : Safe:=false) -> RngUPolElt_FldPadExact
   {Exact divide.}
   ok, R := ExistsCoveringStructure(Parent(f), Parent(g));
   require ok: "not coercible to a common ring";
   f2 := R ! f;
   g2 := R ! g;
-  EnsureAllApproximationsFullDegree(g2);
   h := New(RngUPolElt_FldPadExact);
+  if Safe then
+    ok, n := IsDefinitelyFullDegree(g2);
+    require ok: "leading coefficient of g weakly zero";
+    h`min_epoch := n;
+  else
+    EnsureAllApproximationsFullDegree(g2);
+  end if;
   h`parent := R;
   h`dependencies := [*f2,g2*];
   h`get_approximation := func<n,xds | xds[1] div xds[2]>;
@@ -569,14 +581,20 @@ intrinsic 'div'(x, y :: RngUPolElt_FldPadExact) -> .
 end intrinsic;
 
 ///ditto
-intrinsic 'mod'(f :: RngUPolElt_FldPadExact, g :: RngUPolElt_FldPadExact) -> RngUPolElt_FldPadExact
+intrinsic 'mod'(f :: RngUPolElt_FldPadExact, g :: RngUPolElt_FldPadExact : Safe:=false) -> RngUPolElt_FldPadExact
   {Remainder.}
   ok, R := ExistsCoveringStructure(Parent(f), Parent(g));
   require ok: "not coercible to a common ring";
   f2 := R ! f;
   g2 := R ! g;
-  EnsureAllApproximationsFullDegree(g2);
   h := New(RngUPolElt_FldPadExact);
+  if Safe then
+    ok, n := IsDefinitelyFullDegree(g2);
+    require ok: "leading coefficient of g is weakly zero";
+    h`min_epoch := n;
+  else
+    EnsureAllApproximationsFullDegree(g2);
+  end if;
   h`parent := R;
   h`dependencies := [*f2,g2*];
   h`get_approximation := func<n,xds | xds[1] mod xds[2]>;
@@ -701,29 +719,46 @@ end intrinsic;
 
 ///## Discriminant and resultant
 
-intrinsic Discriminant(f :: RngUPolElt_FldPadExact) -> FldPadExact
+intrinsic Discriminant(f :: RngUPolElt_FldPadExact : Safe:=false) -> FldPadExact
   {The discriminant of f.}
-  if not assigned f`discriminant then
-    EnsureAllApproximationsFullDegree(f);
+  if Safe or not assigned f`discriminant then
     D := New(FldPadExactElt);
+    if Safe then
+      ok, n := IsDefinitelyFullDegree(f);
+      require ok: "leading coefficient of f is weakly zero";
+      D`min_epoch := n;
+    else
+      EnsureAllApproximationsFullDegree(f);
+    end if;
     D`parent := BaseRing(f);
     D`dependencies := [* f *];
     D`get_approximation := func<n, xf | Discriminant(xf[1])>;
     Init(D);
-    f`discriminant := D;
+    if Safe then
+      // no cacheing the Safe version
+      return D;
+    end if;
   end if;
   return f`discriminant;
 end intrinsic;
 
-intrinsic Resultant(f :: RngUPolElt_FldPadExact, g :: RngUPolElt_FldPadExact) -> FldPadExact
+intrinsic Resultant(f :: RngUPolElt_FldPadExact, g :: RngUPolElt_FldPadExact : Safe:=false) -> FldPadExact
   {The resultant of f and g.}
   ok, R := ExistsCoveringStructure(Parent(f), Parent(g));
   require ok: "f and g must be coercible to a common ring";
   f2 := R ! f;
   g2 := R ! g;
-  EnsureAllApproximationsFullDegree(f2);
-  EnsureAllApproximationsFullDegree(g2);
   r := New(FldPadExactElt);
+  if Safe then
+    ok, n1 := IsDefinitelyFullDegree(f2);
+    require ok: "leading coefficient of f is weakly zero";
+    ok, n2 := IsDefinitelyFullDegree(g2);
+    require ok: "leading coefficient of g is weakly zero";
+    r`min_epoch := Max(n1, n2);
+  else
+    EnsureAllApproximationsFullDegree(f2);
+    EnsureAllApproximationsFullDegree(g2);
+  end if;
   r`parent := BaseRing(R);
   r`dependencies := [* f2, g2 *];
   r`get_approximation := func<n,xds | Resultant(xds[1], xds[2])>;
