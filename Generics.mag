@@ -172,24 +172,32 @@ end intrinsic;
 intrinsic ExistsEpochWith(x :: AnyPadExact, pred) -> BoolElt, RngIntElt
   {True if there is an epoch of x such that `pred(x)` is true. If so, returns it.}
   if #x`approximations eq 0 then
-    BringToEpoch(x, 1);
+    if not CanBringToEpoch(x, 1) then
+      return false, _;
+    end if;
   end if;
   while not pred(x) do
-    BringToEpoch(x, #x`approximations+1);
+    if not CanBringToEpoch(x, #x`approximations+1) then
+      return false, _;
+    end if;
   end while;
   return true, #x`approximations;
 end intrinsic;
 
 intrinsic ExistsEpochWithApproximation(x :: AnyPadExact, pred : FromTop:=false, Minimize:=false) -> BoolElt, RngIntElt
-  {True if there is an epoch of x such that `pred(xx)` is true, where `xx` is the corresponding approximation. If so, returns it.}
+  {True if there is an epoch of x such that `pred(xx)` is true, where `xx` is the corresponding approximation. If so, returns it. False if `max_epoch` is ever exceeded.}
   if #x`approximations eq 0 then
-    BringToEpoch(x, 1);
+    if not CanBringToEpoch(x, 1) then
+      return false, _;
+    end if;
   end if;
   nmin := FromTop select #x`approximations else 1;
   n := nmin;
   while not pred(x`approximations[n]) do
     n +:= 1;
-    BringToEpoch(x, n);
+    if not CanBringToEpoch(x, n) then
+      return false, _;
+    end if;
   end while;
   if Minimize and n eq nmin then
     while n gt 1 and pred(x`approximations[n-1]) do
