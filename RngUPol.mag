@@ -82,20 +82,6 @@ intrinsic InterpolateEpochs(f :: RngUPolElt_FldPadExact, n1 :: RngIntElt, n2 :: 
 end intrinsic;
 
 ///hide
-intrinsic Generator(R :: RngUPol_FldPadExact) -> RngUPolElt_FldPadExact
-  {The generator of R.}
-  if not assigned R`generator then
-    x := New(RngUPolElt_FldPadExact);
-    x`parent := R;
-    x`dependencies := [* R *];
-    x`get_approximation := func<n, xR | xR[1].1>;
-    Init(x);
-    R`generator := x;
-  end if;
-  return R`generator;
-end intrinsic;
-
-///hide
 intrinsic Name(R :: RngUPol_FldPadExact, i :: RngIntElt) -> RngUPolElt_FldPadExact
   {The ith generator of R.}
   require i eq 1: "i must be 1";
