@@ -51,3 +51,20 @@ We don't currently document the `Utils.mag`.
 
 ### Potential improvements
 - Precision strategies? The original `ExactpAdics` package had precision strategies, which essentially gave a list of precisions to try computations at. In this package, we currently always try epochs 1, 2, 3, ... forever. We could provide a means to specify the epochs to try, or even specific precisions to try. This could be passed in as a `Strategy` parameter (as in `ExactpAdics`) but this has the disadvantage that one has to be careful that this is propagated out. Or it could be attached as a `precision_strategy` attribute of a p-adic object.
+
+## License
+
+Copyright (C) 2018 Christopher Doris
+
+ExactpAdicsCommon is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+ExactpAdicsCommon is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with ExactpAdicsCommon.  If not, see http://www.gnu.org/licenses/.
