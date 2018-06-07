@@ -50,12 +50,36 @@ declare attributes ExtFldPadExact
   : ramification_polygon
   , ramification_filtration
   , transition_function
+  , discriminant_valuation
   ;
 
 declare attributes FldPadExact
   // cache
   : transition_function
   ;
+
+/// The valuation of the discriminant of E over F (or its base field).
+intrinsic DiscriminantValuation(E :: FldPadExact, F :: FldPadExact) -> RngIntElt
+  {The valuation of the discriminant of E over F.}
+  return DiscriminantValuation(E / F);
+end intrinsic;
+
+///ditto
+intrinsic DiscriminantValuation(E :: FldPadExact) -> RngIntElt
+  {The valuation of the discriminant of E over its base field.}
+  return DiscriminantValuation(E / BaseField(E));
+end intrinsic;
+
+///hide
+intrinsic DiscriminantValuation(X :: ExtFldPadExact) -> RngIntElt
+  {The valuation of the discriminant of E.}
+  if not assigned X`discriminant_valuation then
+    v := Vertices(RamificationPolygon(X))[1];
+    assert v[1] eq 1;
+    X`discriminant_valuation := v[2];
+  end if;
+  return X`discriminant_valuation;
+end intrinsic;
 
 intrinsic RamificationResidualPolynomials(f :: RngUPolElt_FldPadExact) -> []
   {The residual polynomials of the ramification polygon of f.}
