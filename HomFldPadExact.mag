@@ -28,12 +28,9 @@ declare attributes HomFldPadExact
   , inverse                // Inverse(*) (if invertible)
   ;
 
-declare attributes FldPadExact
-  : trivial_isomorphism
-  ;
-
 declare attributes ExtFldPadExact
   : trivial_homomorphism
+  , trivial_isomorphism
   , automorphisms
   , automorphism_group
   , automorphism_group_map
@@ -41,28 +38,45 @@ declare attributes ExtFldPadExact
 
 ///### Creation
 
+intrinsic TrivialHomomorphism(E :: FldPadExact, C :: FldPadExact, F :: FldPadExact) -> HomFldPadExact
+  {The trivial F-homomorphism of E into C, which must be an extension of E.}
+  return TrivialHomomorphism(E/F, C);
+end intrinsic;
+
 intrinsic TrivialHomomorphism(E :: FldPadExact, C :: FldPadExact) -> HomFldPadExact
-  {The trivial embedding of E into C, where C is an extension of E.}
-  return TrivialHomomorphism(C/E);
+  {The trivial E-homomorphism of E into C, which must be an extension of E.}
+  return TrivialHomomorphism(E/C);
+end intrinsic;
+
+///hide
+intrinsic TrivialHomomorphism(X :: ExtFldPadExact, C :: FldPadExact) -> HomFldPadExact
+  {The trivial homomorphism of X into C.}
+  return Homomorphism(X, [C| fld.1 : fld in Tower0(X)]);
 end intrinsic;
 
 ///hide
 intrinsic TrivialHomomorphism(X :: ExtFldPadExact) -> HomFldPadExact
-  {The trivial embedding of the base field into the top field.}
+  {The trivial homomorphism of X.}
   if not assigned X`trivial_homomorphism then
-    X`trivial_homomorphism := Homomorphism(BaseField(X)/BaseField(X), [TopField(X)|]);
+    X`trivial_homomorphism := Homomorphism(X, [TopField(X)| fld.1 : fld in Tower0(X)]);
   end if;
   return X`trivial_homomorphism;
 end intrinsic;
 
-intrinsic TrivialIsomorphism(F :: FldPadExact) -> HomFldPadExact
-  {The trivial isomorphism of F.}
-  if not assigned F`trivial_isomorphism then
-    h := TrivialHomomorphism(F, F);
+intrinsic TrivialIsomorphism(E :: FldPadExact, F :: FldPadExact) -> HomFldPadExact
+  {The trivial F-isomorphism of E.}
+  return TrivialIsomorphism(E, F);
+end intrinsic;
+
+///hide
+intrinsic TrivialIsomorphism(X :: ExtFldPadExact) -> HomFldPadExact
+  {The trivial isomorphism of X.}
+  if not assigned X`trivial_isomorphism then
+    h := TrivialHomomorphism(X);
     h`inverse := h;
-    F`trivial_isomorphism := h;
+    X`trivial_isomorphism := h;
   end if;
-  return F`trivial_isomorphism;
+  return X`trivial_isomorphism;
 end intrinsic;
 
 intrinsic Homomorphism(E :: FldPadExact, g :: FldPadExactElt) -> HomFldPadExact
@@ -107,7 +121,7 @@ intrinsic Homomorphisms(E :: FldPadExact, C :: FldPadExact, F :: FldPadExact : L
   end if;
   // trivial case
   if E eq F then
-    return [TrivialHomomorphism(E, C)];
+    return [TrivialHomomorphism(E, C, F)];
   end if;
   // general case, first get the homomorphisms of the base field
   E0 := BaseField(E);
