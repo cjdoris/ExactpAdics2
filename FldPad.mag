@@ -617,7 +617,7 @@ intrinsic IsCoercible(F :: FldPadExact, X :: FldPadExactElt) -> BoolElt, .
     Init(x);
     return true, x;
   else
-    return false, _;
+    return false, "not in an extension";
   end if;
 end intrinsic;
 
