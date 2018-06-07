@@ -17,4 +17,6 @@
   common {
     Factorization_new.mag
   }
+  ModTupFld.mag
+  ModMatFld.mag
 }

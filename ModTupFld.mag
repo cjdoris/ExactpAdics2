@@ -1,0 +1,513 @@
+// This file is part of ExactpAdics
+// Copyright (C) 2018 Christopher Doris
+//
+// ExactpAdics is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// ExactpAdics is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with ExactpAdics.  If not, see <http://www.gnu.org/licenses/>.
+
+
+///# Linear algebra
+///toc
+
+import "Utils.mag": Q, Z, CAP_PR;
+import "Promotion.mag": do_binop;
+
+declare type ModTupFld_FldPadExact[ModTupFldElt_FldPadExact]: StrPadExact;
+declare attributes ModTupFld_FldPadExact
+  : base_field         // the base field
+  , degree             // the degree (i.e. a subspace of base_field^degree)
+  , generic            // the generic space of which this is a subspace (can be itself)
+  , outer_generators   // sequence of generators (in some overspace) (if not assigned, must be generic)
+  // CACHE
+  , generators         // sequence of generators (in this space)
+  , dimension          // Dimension(*)
+  ;
+
+declare type ModTupFldElt_FldPadExact: PadExactElt;
+declare attributes ModTupFldElt_FldPadExact
+  // CACHE
+  : negation           // -*
+  , component          // [i] -> Component(*,i) = *(i)
+  , eltseq             // Eltseq(*)
+  , norm               // Norm(*)
+  ;
+
+declare attributes FldPadExact
+  // CACHE
+  : vector_space       // [n] -> VectorSpace(*, n)
+  ;
+
+///## Creation of vector spaces
+///priority 2
+
+intrinsic VectorSpace(K :: FldPadExact, n :: RngIntElt) -> ModTupFld_FldPadExact
+  {The full vector space over K of dimension n.}
+  return KSpace(K, n);
+end intrinsic;
+
+intrinsic KSpace(K :: FldPadExact, n :: RngIntElt) -> ModTupFld_FldPadExact
+  {"}
+  require n ge 0: "n must be at least 0";
+  if not assigned K`vector_space then
+    K`vector_space := AssociativeArray(Z);
+  end if;
+  ok, V := IsDefined(K`vector_space, n);
+  if not ok then
+    V := New(ModTupFld_FldPadExact);
+    V`base_field := K;
+    V`degree := n;
+    V`generic := V;
+    V`dependencies := [* K *];
+    V`get_approximation := func<m, xds | VectorSpace(xds[1], n)>;
+    Init(V);
+    K`vector_space[n] := V;
+  end if;
+  return V;
+end intrinsic;
+
+///hide
+intrinsic Print(V :: ModTupFld_FldPadExact, lvl :: MonStgElt)
+  {Print.}
+  case lvl:
+  when "Magma":
+    if IsGeneric(V) then
+      printf "VectorSpace(%m, %m)", BaseField(V), Degree(V);
+    else
+      printf "<some subspace of %m>", Generic(V);
+    end if;
+  else
+    if IsGeneric(V) then
+      printf "Full ";
+    end if;
+    printf "Vector space of degree %O over %O", Degree(V), lvl, BaseField(V), lvl;
+    if not IsGeneric(V) then
+      printf "with generators:";
+      for gen in Generators(V) do
+        print "";
+        IndentPush();
+        Print(gen, lvl);
+        IndentPop();
+      end for;
+    end if;
+  end case;
+end intrinsic;
+
+///hide
+intrinsic Print(v :: ModTupFldElt_FldPadExact, lvl :: MonStgElt)
+  {"}
+  xv := BestApproximation(v);
+  case lvl:
+  when "Maximal":
+    printf "%o", xv;
+  else
+    printf "%o", Parent(xv) ! [CAP_PR(xc, 1) : xc in Eltseq(xv)];
+  end case;
+end intrinsic;
+
+///hide
+intrinsic InterpolateEpochs(x :: ModTupFldElt_FldPadExact, n1 :: RngIntElt, n2 :: RngIntElt, xx2) -> List
+  {Interpolates between the given epochs.}
+  return [* EpochApproximation(Parent(x), n) ! xx2 : n in [n1+1..n2-1] *];
+end intrinsic;
+
+///hide
+intrinsic Ngens(V :: ModTupFld_FldPadExact) -> RngIntElt
+  {The number of generators of V.}
+  return #Generators(V);
+end intrinsic;
+
+///hide
+intrinsic NumberOfNames(V :: ModTupFld_FldPadExact) -> RngIntElt
+  {"}
+  return Ngens(V);
+end intrinsic;
+
+///hide
+intrinsic Name(V :: ModTupFld_FldPadExact, i :: RngIntElt) -> ModTupFldElt_FldPadExact
+  {The ith generator of V.}
+  require 0 lt i and i le Ngens(V): "i out of range";
+  return Generators(V)[i];
+end intrinsic;
+
+///hide
+intrinsic '.'(V :: ModTupFld_FldPadExact, i :: RngIntElt) -> ModTupFldElt_FldPadExact
+  {"}
+  return Name(V, i);
+end intrinsic;
+
+///hide
+intrinsic AssignNames(~V :: ModTupFld_FldPadExact, names :: [MonStgElt])
+  {Assigns names to the generators of V.}
+  require #names le Ngens(V): "too many names";
+  // do nothing with them!
+end intrinsic;
+
+
+///## Creation of vectors
+///priority 2
+
+///### Coercion
+///
+/// The following can be coerced to a vector in V:
+/// - A vector in V
+/// - A vector whose components are coercible to the base field of V
+/// - A sequence of vector entries, all coercible to the base field
+
+intrinsic IsCoercible(V :: ModTupFld_FldPadExact, X) -> BoolElt, .
+  {True if X is coercible to an element of V. If so, also returns the coerced element.}
+  return false, "wrong type";
+end intrinsic;
+
+///hide
+intrinsic IsCoercible(V :: ModTupFld_FldPadExact, X :: ModTupFldElt_FldPadExact) -> BoolElt, .
+  {"}
+  if Parent(X) eq V then
+    return true, X;
+  end if;
+  return IsCoercible(V, Eltseq(X));
+end intrinsic;
+
+///hide
+intrinsic IsCoercible(V :: ModTupFld_FldPadExact, X :: []) -> BoolElt, .
+  {"}
+  if not IsGeneric(V) then
+    return false, "not implemented for non-generic V";
+  end if;
+  if #X ne Degree(V) then
+    return false, "wrong length";
+  end if;
+  ok, xs := CanChangeUniverse(X, BaseField(V));
+  if not ok then
+    return false, "coefficients not coercible to base field";
+  end if;
+  v := New(ModTupFldElt_FldPadExact);
+  v`parent := V;
+  v`dependencies := [* V *] cat [* x : x in xs *];
+  v`get_approximation := func<n, xds | xds[1] ! [xc : xc in xds[2..#xds]]>;
+  Init(v);
+  return true, v;
+end intrinsic;
+
+///## Basic properties of vector spaces
+///priority 2
+
+intrinsic BaseField(V :: ModTupFld_FldPadExact) -> FldPadExact
+  {The base field of V.}
+  return V`base_field;
+end intrinsic;
+
+intrinsic BaseField(v :: ModTupFldElt_FldPadExact) -> FldPadExact
+  {The base field of v.}
+  return v`parent`base_field;
+end intrinsic;
+
+intrinsic Degree(V :: ModTupFld_FldPadExact) -> RngIntElt
+  {If V is a subspace of `K^n`, returns `n`. That is, the number of columns in vectors in V.}
+  return V`degree;
+end intrinsic;
+
+intrinsic Generic(V :: ModTupFld_FldPadExact) -> ModTupFld_FldPadExact
+  {The generic vector space containing V.}
+  return V`generic;
+end intrinsic;
+
+intrinsic IsGeneric(V :: ModTupFld_FldPadExact) -> BoolElt
+  {True if V is generic, i.e. it was created as the full-dimensional vector space with default generators.}
+  return Generic(V) eq V;
+end intrinsic;
+
+intrinsic Dimension(V :: ModTupFld_FldPadExact) -> RngIntElt
+  {The dimension of V.}
+  if not assigned V`dimension then
+    if IsGeneric(V) then
+      dim := Degree(V);
+    else
+      error "not implemented: Dimension";
+    end if;
+    V`dimension := dim;
+  end if;
+  return V`dimension;
+end intrinsic;
+
+intrinsic Generators(V :: ModTupFld_FldPadExact) -> []
+  {The generators of V.}
+  if not assigned V`generators then
+    if IsGeneric(V) then
+      V`generators := [V| [i eq j select 1 else 0 : j in [1..Degree(V)]] : i in [1..Degree(V)]];
+    else
+      V`generators := [V| gen : gen in V`outer_generators];
+    end if;
+  end if;
+  return V`generators;
+end intrinsic;
+
+///hide
+intrinsic ExistsCoveringStructure(V1 :: ModTupFld_FldPadExact, V2 :: ModTupFld_FldPadExact) -> BoolElt, .
+  {True if there is a space containing both V1 and V2.}
+  if V1 eq V2 then
+    return true, V1;
+  elif Generic(V1) eq Generic(V2) then
+    if IsGeneric(V1) then
+      return true, V1;
+    elif IsGeneric(V2) then
+      return true, V2;
+    else
+      error "not implemented: joining vector spaces";
+    end if;
+  elif Degree(V1) ne Degree(V2) then
+    return false, _;
+  end if;
+  // general case
+  ok, F := ExistsCoveringStructure(BaseField(V1), BaseField(V2));
+  if not ok then
+    return false, _;
+  elif F eq BaseField(V1) and IsGeneric(V1) then
+    return true, V1;
+  elif F eq BaseField(V2) and IsGeneric(V2) then
+    return true, V2;
+  else
+    error "not implemented: joining vector spaces";
+  end if;
+end intrinsic;
+
+///hide
+intrinsic CanChangeRing(v :: ModTupFldElt_FldPadExact, F :: FldPadExact) -> BoolElt, ModTupFldElt_FldPadExact
+  {True if the base ring of v can be changed to F.}
+  if BaseField(v) eq F then
+    return true, v;
+  end if;
+  ok, E := ExistsCoveringStructure(BaseField(v), F);
+  if ok then
+    if IsGeneric(Parent(v)) then
+      return VectorSpace(E, Ncols(v)) ! v;
+    else
+      error "not implemented: changing base field of vector space";
+    end if;
+  else
+    return false, _;
+  end if;
+end intrinsic;
+
+///hide
+intrinsic ChangeRing(v :: ModTupFldElt_FldPadExact, F :: FldPadExact) -> ModTupFldElt_FldPadExact
+  {A copy of v with its base field changed to F.}
+  ok, w := CanChangeRing(v, F);
+  require ok: "cannot change ring";
+  return w;
+end intrinsic;
+
+///## Vector components
+///priority 2
+
+/// Number of rows and columns
+intrinsic Nrows(v :: ModTupFldElt_FldPadExact) -> RngIntElt
+  {The number of rows in v (always 1).}
+  return 1;
+end intrinsic;
+
+///ditto
+intrinsic Ncols(v :: ModTupFldElt_FldPadExact) -> RngIntElt
+  {The number of columns in v.}
+  return Degree(Parent(v));
+end intrinsic;
+
+intrinsic Eltseq(v :: ModTupFldElt_FldPadExact) -> []
+  {The components of v as a sequence.}
+  if not assigned v`eltseq then
+    v`eltseq := [BaseField(v)| Component(v, i) : i in [1..Nrows(v)]];
+  end if;
+  return v`eltseq;
+end intrinsic;
+
+intrinsic Component(v :: ModTupFldElt_FldPadExact, i :: RngIntElt) -> FldPadExactElt
+  {The ith component of v.}
+  if not assigned v`component then
+    v`component := [BaseField(v)| ];
+  end if;
+  if not IsDefined(v`component, i) then
+    x := New(FldPadExactElt);
+    x`parent := BaseField(v);
+    x`dependencies := [* v *];
+    x`get_approximation := func<n, xds | xds[1][i]>;
+    Init(x);
+    v`component[i] := x;
+  end if;
+  return v`component[i];
+end intrinsic;
+
+intrinsic '@'(i :: RngIntElt, v :: ModTupFldElt_FldPadExact) -> FldPadExactElt
+  {"}
+  return Component(v, i);
+end intrinsic;
+
+
+///## Arithmetic
+///### Pointwise
+
+/// Vectors: Negation, addition, subtraction, sum.
+intrinsic '-'(v :: ModTupFldElt_FldPadExact) -> ModTupFldElt_FldPadExact
+  {Negation.}
+  if not assigned v`negation then
+    w := New(ModTupFldElt_FldPadExact);
+    w`parent := v`parent;
+    w`dependencies := [* v *];
+    w`get_approximation := func<n, xds | -xds[1]>;
+    Init(w);
+    v`negation := w;
+    w`negation := v;
+  end if;
+  return v`negation;
+end intrinsic;
+
+///ditto
+intrinsic '+'(v :: ModTupFldElt_FldPadExact, w :: ModTupFldElt_FldPadExact) -> ModTupFldElt_FldPadExact
+  {Addition.}
+  ok, V := ExistsCoveringStructure(Parent(v), Parent(w));
+  require ok: "not coercible to the same space";
+  return &+[V| v, w];
+end intrinsic;
+
+///hide
+intrinsic '+'(v :: ModTupFldElt_FldPadExact, w) -> .
+  {"}
+  return do_binop('+', v, w);
+end intrinsic;
+
+///hide
+intrinsic '+'(v, w :: ModTupFldElt_FldPadExact) -> .
+  {"}
+  return do_binop('+', v, w);
+end intrinsic;
+
+///ditto
+intrinsic '-'(v :: ModTupFldElt_FldPadExact, w :: ModTupFldElt_FldPadExact) -> ModTupFldElt_FldPadExact
+  {Subtraction.}
+  ok, V := ExistsCoveringStructure(Parent(v), Parent(w));
+  require ok: "not coercible to the same space";
+  u := New(ModTupFldElt_FldPadExact);
+  u`parent := V;
+  u`dependencies := [* V!v, V!w *];
+  u`get_approximation := func<n, xds | xds[1] - xds[2]>;
+  Init(u);
+  return u;
+end intrinsic;
+
+///hide
+intrinsic '-'(v :: ModTupFldElt_FldPadExact, w) -> .
+  {"}
+  return do_binop('-', v, w);
+end intrinsic;
+
+///hide
+intrinsic '-'(v, w :: ModTupFldElt_FldPadExact) -> .
+  {"}
+  return do_binop('-', v, w);
+end intrinsic;
+
+///ditto
+intrinsic '&+'(vs :: [ModTupFldElt_FldPadExact]) -> ModTupFldElt_FldPadExact
+  {Sum.}
+  if #vs eq 0 then
+    return Zero(Universe(vs));
+  end if;
+  u := New(ModTupFldElt_FldPadExact);
+  u`parent := Universe(vs);
+  u`dependencies := [* v : v in vs *];
+  u`get_approximation := func<n, xds | &+[xv : xv in xds]>;
+  Init(u);
+  return u;
+end intrinsic;
+
+///### Scalar
+
+/// Scalar multiplication and division.
+intrinsic '*'(v :: ModTupFldElt_FldPadExact, x :: FldPadExactElt) -> ModTupFldElt_FldPadExact
+  {Scalar multiplication.}
+  ok, F := ExistsCoveringStructure(BaseField(v), Parent(x));
+  require ok: "not coercible to same base field";
+  v2 := ChangeRing(v, F);
+  x2 := F ! x;
+  u := New(ModTupFldElt_FldPadExact);
+  u`parent := Parent(v2);
+  u`dependencies := [* v2, x2 *];
+  u`get_approximation := func<n, xds | xds[1] * xds[2]>;
+  Init(u);
+  return u;
+end intrinsic;
+
+///ditto
+intrinsic '*'(x :: FldPadExactElt, v :: ModTupFldElt_FldPadExact) -> .
+  {"}
+  return v * x;
+end intrinsic;
+
+///ditto
+intrinsic '/'(v :: ModTupFldElt_FldPadExact, x :: FldPadExactElt : Safe:=false) -> ModTupFldElt_FldPadExact
+  {Scalar division.}
+  ok, F := ExistsCoveringStructure(BaseField(v), Parent(x));
+  require ok: "not coercible to same base field";
+  v2 := ChangeRing(v, F);
+  x2 := F ! x;
+  w := New(ModTupFldElt_FldPadExact);
+  if Safe then
+    ok, n := IsDefinitelyNonzero(x2 : Minimize);
+    require ok: "x is weakly zero";
+    w`min_epoch := n;
+  else
+    EnsureAllApproximationsNonzero(x2);
+  end if;
+  w`parent := Parent(v2);
+  w`dependencies := [* v2, x2 *];
+  w`get_approximation := func<n, xds | xds[1] / xds[2]>;
+  Init(w);
+  return w;
+end intrinsic;
+
+///### Matrix
+
+intrinsic InnerProduct(v :: ModTupFldElt_FldPadExact, w :: ModTupFldElt_FldPadExact) -> ModTupFldElt_FldPadExact
+  {Inner product.}
+  ok, V := ExistsCoveringStructure(Parent(v), Parent(w));
+  require ok: "not coercible to the same space";
+  u := New(ModTupFldElt_FldPadExact);
+  u`parent := BaseField(V);
+  u`dependencies := [* V!v, V!w *];
+  u`get_approximation := func<n, xds | InnerProduct(xds[1], xds[2])>;
+  Init(u);
+  return u;
+end intrinsic;
+
+///hide
+intrinsic InnerProduct(v :: ModTupFldElt_FldPadExact, w) -> .
+  {"}
+  return do_binop(InnerProduct, v, w);
+end intrinsic;
+
+///hide
+intrinsic InnerProduct(v, w :: ModTupFldElt_FldPadExact) -> .
+  {"}
+  return do_binop(InnerProduct, v, w);
+end intrinsic;
+
+intrinsic Norm(v :: ModTupFldElt_FldPadExact) -> ModTupFldElt_FldPadExact
+  {Norm.}
+  if not assigned v`norm then
+    x := New(FldPadExactElt);
+    x`parent := BaseField(v);
+    x`dependencies := [* v *];
+    x`get_approximation := func<n, xds | Norm(xds[1])>;
+    Init(x);
+    v`norm := x;
+  end if;
+  return v`norm;
+end intrinsic;
+

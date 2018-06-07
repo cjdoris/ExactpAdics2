@@ -1,0 +1,766 @@
+// This file is part of ExactpAdics
+// Copyright (C) 2018 Christopher Doris
+//
+// ExactpAdics is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// ExactpAdics is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with ExactpAdics.  If not, see <http://www.gnu.org/licenses/>.
+
+
+///# Linear algebra
+
+import "Utils.mag": Q, Z, CAP_PR;
+import "Promotion.mag": do_binop;
+
+declare type ModMatFld_FldPadExact[ModMatFldElt_FldPadExact]: StrPadExact;
+declare attributes ModMatFld_FldPadExact
+  : base_field         // the base field
+  , nrows              // the number of rows
+  , ncols              // the number of columns
+  // CACHE
+  , generators         // sequence of generators
+  , degree             // Degree(*) (nrows * ncols)
+  , dimension          // Dimension(*)
+  , row_space          // RowSpace(*)
+  , transpose_space    // TransposeSpace(*)
+  , identity           // Identity(*)
+  , zero               // Zero(*)
+  ;
+
+declare type ModMatFldElt_FldPadExact: PadExactElt;
+declare attributes ModMatFldElt_FldPadExact
+  // CACHE
+  : negation           // -*
+  , component          // [i,j] -> Component(*,i,j) = *(i,j)
+  , row                // [i] -> Row(*,i)
+  , rows               // Rows(*)
+  , eltseq             // Eltseq(*)
+  , determinant        // Determinant(*)
+  , inverse            // *^-1
+  ;
+
+declare attributes FldPadExact
+  // CACHE
+  : matrix_space       // [m,n] -> KMatrixSpace(*, m, n)
+  ;
+
+///## Creation of matrix spaces
+///priority 1
+
+intrinsic KMatrixSpace(K :: FldPadExact, m :: RngIntElt, n :: RngIntElt) -> ModMatFld_FldPadExact
+  {The space of `m x n` matrices over K.}
+  require m ge 0: "m must be at least 0";
+  require n ge 0: "n must be at least 0";
+  if not assigned K`matrix_space then
+    K`matrix_space := AssociativeArray(car<Z,Z>);
+  end if;
+  k := <m, n>;
+  ok, M := IsDefined(K`matrix_space, k);
+  if not ok then
+    M := New(ModMatFld_FldPadExact);
+    M`base_field := K;
+    M`nrows := m;
+    M`ncols := n;
+    M`dependencies := [* K *];
+    M`get_approximation := func<_n, xds | KMatrixSpace(xds[1], m, n)>;
+    Init(M);
+    K`matrix_space[k] := M;
+  end if;
+  return M;
+end intrinsic;
+
+///hide
+intrinsic Print(M :: ModMatFld_FldPadExact, lvl :: MonStgElt)
+  {Print.}
+  case lvl:
+  when "Magma":
+    printf "KMatrixSpace(%m, %m, %m)", BaseRing(M), Nrows(M), Ncols(M);
+  else
+    printf "Full KMatrixSpace of %o by %o matrices over %O", Nrows(M), Ncols(M), BaseField(M), lvl;
+  end case;
+end intrinsic;
+
+///hide
+intrinsic Print(m :: ModMatFldElt_FldPadExact, lvl :: MonStgElt)
+  {"}
+  xm := BestApproximation(m);
+  case lvl:
+  when "Maximal":
+    printf "%o", xm;
+  else
+    printf "%o", Parent(xm) ! [CAP_PR(xc, 1) : xc in Eltseq(xm)];
+  end case;
+end intrinsic;
+
+///hide
+intrinsic InterpolateEpochs(x :: ModMatFldElt_FldPadExact, n1 :: RngIntElt, n2 :: RngIntElt, xx2) -> List
+  {Interpolates between the given epochs.}
+  return [* EpochApproximation(Parent(x), n) ! xx2 : n in [n1+1..n2-1] *];
+end intrinsic;
+
+///hide
+intrinsic Ngens(M :: ModMatFld_FldPadExact) -> RngIntElt
+  {The number of generators of M.}
+  return #Generators(M);
+end intrinsic;
+
+///hide
+intrinsic NumberOfNames(M :: ModMatFld_FldPadExact) -> RngIntElt
+  {"}
+  return Ngens(M);
+end intrinsic;
+
+///hide
+intrinsic Name(M :: ModMatFld_FldPadExact, i :: RngIntElt) -> ModMatFldElt_FldPadExact
+  {The ith generator of M.}
+  require 0 lt i and i le Ngens(M): "i out of range";
+  return Generators(M)[i];
+end intrinsic;
+
+///hide
+intrinsic '.'(M :: ModMatFld_FldPadExact, i :: RngIntElt) -> ModMatFldElt_FldPadExact
+  {"}
+  return Name(M, i);
+end intrinsic;
+
+///hide
+intrinsic AssignNames(~M :: ModMatFld_FldPadExact, names :: [MonStgElt])
+  {Assigns names to the generators of V.}
+  require #names le Ngens(M): "too many names";
+  // do nothing with them!
+end intrinsic;
+
+///## Creation of matrices
+///priority 1
+
+///### From coefficients
+
+intrinsic Matrix(K :: FldPadExactElt, nrows :: RngIntElt, ncols :: RngIntElt, cs) -> ModMatFldElt_FldPadExact
+  {The `nrows x ncols` matrix over K defined by cs.}
+  return KMatrixSpace(K, nrows, ncols) ! cs;
+end intrinsic;
+
+intrinsic Matrix(nrows :: RngIntElt, ncols :: RngIntElt, cs :: [FldPadExactElt]) -> ModMatFldElt_FldPadExact
+  {The `nrows x ncols` matrix with coefficients cs.}
+  return KMatrixSpace(Universe(cs), nrows, ncols) ! cs;
+end intrinsic;
+
+intrinsic Matrix(cs :: SeqEnum[SeqEnum[FldPadExactElt]]) -> ModMatFldElt_FldPadExact
+  {The matrix whose rows are given by each entry in cs.}
+  require #cs ne 0: "cs must be non-empty";
+  require forall{row : row in cs | #row eq #cs[1]}: "rows must all be same length";
+  return KMatrixSpace(Universe(cs[1]), #cs, #cs[1]) ! cs;
+end intrinsic;
+
+intrinsic Matrix(cs :: [ModTupFldElt_FldPadExact]) -> ModMatFldElt_FldPadExact
+  {"}
+  return KMatrixSpace(BaseField(Universe(cs)), #cs, Degree(Universe(cs))) ! cs;
+end intrinsic;
+
+///### Special forms
+
+intrinsic Zero(M :: ModMatFld_FldPadExact) -> ModMatFldElt_FldPadExact
+  {The zero matrix.}
+  if not assigned M`zero then
+    z := New(ModMatFldElt_FldPadExact);
+    z`parent := M;
+    z`dependencies := [* M *];
+    z`get_approximation := func<n, xds | Zero(xds[1])>;
+    Init(z);
+    M`zero := z;
+  end if;
+  return M`zero;
+end intrinsic;
+
+intrinsic ZeroMatrix(M :: ModMatFld_FldPadExact) -> ModMatFldElt_FldPadExact
+  {"}
+  return Zero(M);
+end intrinsic;
+
+intrinsic ZeroMatrix(K :: FldPadExact, nrows :: RngIntElt, ncols :: RngIntElt) -> ModMatFldElt_FldPadExact
+  {"}
+  return Zero(KMatrixSpace(K, nrows, ncols));
+end intrinsic;
+
+intrinsic Identity(M :: ModMatFld_FldPadExact) -> ModMatFldElt_FldPadExact
+  {The identity matrix.}
+  if not assigned M`identity then
+    M`identity := ScalarMatrix(M, BaseField(M) ! 1);
+  end if;
+  return M`identity;
+end intrinsic;
+
+intrinsic IdentityMatrix(M :: ModMatFld_FldPadExact) -> ModMatFldElt_FldPadExact
+  {"}
+  return Identity(M);
+end intrinsic;
+
+intrinsic IdentityMatrix(K :: FldPadExact, nrows :: RngIntElt) -> ModMatFldElt_FldPadExact
+  {"}
+  return Identity(KMatrixSpace(K, nrows, nrows));
+end intrinsic;
+
+intrinsic ScalarMatrix(M :: ModMatFld_FldPadExact, x) -> ModMatFldElt_FldPadExact
+  {The scalar matrix with x on the diagonal and zero elsewhere.}
+  require Nrows(M) eq Ncols(M): "M must be square";
+  ok, x2 := IsCoercible(BaseField(M), x);
+  require ok: "x must be coercible to the base field of M";
+  z := New(ModMatFldElt_FldPadExact);
+  z`parent := M;
+  z`dependencies := [* M, x2 *];
+  nrows := Nrows(M);
+  z`get_approximation := func<n, xds | xds[1] ! [[Parent(xds[2])| i eq j select xds[2] else 0 : j in [1..nrows]] : i in [1..nrows]]>;
+  Init(z);
+  return z;
+end intrinsic;
+
+intrinsic ScalarMatrix(K :: FldPadExact, nrows :: RngIntElt, x) -> ModMatFldElt_FldPadExact
+  {"}
+  return ScalarMatrix(KMatrixSpace(K, nrows, nrows), x);
+end intrinsic;
+
+intrinsic ScalarMatrix(nrows :: RngIntElt, x :: FldPadExactElt) -> ModMatFldElt_FldPadExact
+  {"}
+  return ScalarMatrix(Parent(x), nrows, x);
+end intrinsic;
+
+intrinsic DiagonalMatrix(M :: ModMatFld_FldPadExact, cs :: []) -> ModMatFldElt_FldPadExact
+  {The diagonal matrix with diagonal entries given by cs.}
+  require Nrows(M) eq Ncols(M): "M must be square";
+  require #cs eq Nrows(M): "cs wrong length";
+  ok, cs2 := CanChangeUniverse(cs, BaseField(M));
+  require ok: "cs must be coercible to the base field of M";
+  z := New(ModMatFldElt_FldPadExact);
+  z`parent := M;
+  z`dependencies := [* M *] cat [* c : c in cs2 *];
+  nrows := Nrows(M);
+  z`get_approximation := func<n, xds | xds[1] ! [[Parent(xds[2])| i eq j select xds[1+i] else 0 : j in [1..nrows]] : i in [1..nrows]]>;
+  Init(z);
+  return z;
+end intrinsic;
+
+intrinsic DiagonalMatrix(K :: FldPadExact, cs :: []) -> ModMatFldElt_FldPadExact
+  {"}
+  return DiagonalMatrix(KMatrixSpace(K, #cs, #cs), cs);
+end intrinsic;
+
+intrinsic DiagonalMatrix(cs :: [FldPadExactElt]) -> ModMatFldElt_FldPadExact
+  {"}
+  DiagonalMatrix(Universe(cs), cs);
+end intrinsic;
+
+///### Coercion
+///
+/// The following can be coerced to a matrix in M:
+/// - A matrix in M (or whose components are coercible to the base field)
+/// - A sequence of sequences of components
+/// - A sequence of row vectors
+/// - A sequence of components
+
+intrinsic IsCoercible(M :: ModMatFld_FldPadExact, X) -> BoolElt, .
+  {True if X is coercible to an element of M. If so, also returns the coerced element.}
+  return false, "wrong type";
+end intrinsic;
+
+///hide
+intrinsic IsCoercible(M :: ModMatFld_FldPadExact, X :: ModMatFldElt_FldPadExact) -> BoolElt, .
+  {"}
+  if Parent(X) eq M then
+    return true, X;
+  end if;
+  return IsCoercible(M, Eltseq(X));
+end intrinsic;
+
+///hide
+intrinsic IsCoercible(M :: ModMatFld_FldPadExact, X :: []) -> BoolElt, .
+  {"}
+  if #X ne Degree(M) then
+    return false, "wrong length";
+  end if;
+  ok, xs := CanChangeUniverse(X, BaseField(M));
+  if not ok then
+    return false, "coefficients not coercible to base field";
+  end if;
+  m := New(ModMatFldElt_FldPadExact);
+  m`parent := M;
+  m`dependencies := [* M *] cat [* x : x in xs *];
+  m`get_approximation := func<n, xds | xds[1] ! [xc : xc in xds[2..#xds]]>;
+  Init(m);
+  return true, m;
+end intrinsic;
+
+///hide
+intrinsic IsCoercible(M :: ModMatFld_FldPadExact, X :: [[]]) -> BoolElt, .
+  {"}
+  if #X ne Nrows(M) then
+    return false, "wrong number of rows";
+  end if;
+  if not forall{row : row in X | #row eq Ncols(M)} then
+    return false, "some row has wrong number of columns";
+  end if;
+  ok, xs := CanChangeUniverse(X, PowerSequence(BaseField(M)));
+  if not ok then
+    return false, "coefficients not coercible to base field";
+  end if;
+  m := New(ModMatFldElt_FldPadExact);
+  m`parent := M;
+  m`dependencies := [* M *] cat [* x : x in row, row in xs *];
+  m`get_approximation := func<n, xds | xds[1] ! [xc : xc in xds[2..#xds]]>;
+  Init(m);
+  return true, m;
+end intrinsic;
+
+///hide
+intrinsic IsCoercible(M :: ModMatFld_FldPadExact, X :: [ModTupFldElt_FldPadExact]) -> BoolElt, .
+  {"}
+  if #X ne Nrows(M) then
+    return false, "wrong number of rows";
+  end if;
+  ok, xs := CanChangeUniverse(X, RowSpace(M));
+  if not ok then
+    return false, "rows not coercible to row space";
+  end if;
+  m := New(ModMatFldElt_FldPadExact);
+  m`parent := M;
+  m`dependencies := [* M *] cat [* row : row in xs *];
+  m`get_approximation := func<n, xds | xds[1] ! [xrow : xrow in xds[2..#xds]]>;
+  Init(m);
+  return true, m;
+end intrinsic;
+
+///## Basic properties of matrix spaces
+///priority 1
+
+/// The base field.
+intrinsic BaseField(M :: ModMatFld_FldPadExact) -> FldPadExact
+  {The base field of M.}
+  return M`base_field;
+end intrinsic;
+
+///ditto
+intrinsic BaseField(m :: ModMatFldElt_FldPadExact) -> FldPadExact
+  {The base field of m.}
+  return m`parent`base_field;
+end intrinsic;
+
+/// Number of rows and columns.
+intrinsic Nrows(M :: ModMatFld_FldPadExact) -> RngIntElt
+  {The number of rows of elements of M.}
+  return M`nrows;
+end intrinsic;
+
+///ditto
+intrinsic Ncols(M :: ModMatFld_FldPadExact) -> RngIntElt
+  {The number of columns of elements of M.}
+  return M`ncols;
+end intrinsic;
+
+/// Number of components.
+intrinsic Degree(M :: ModMatFld_FldPadExact) -> RngIntElt
+  {If V is a subspace of `K^(m x n)`, returns `mn`. That is, the number of components in elements of M.}
+  return Nrows(M) * Ncols(M);
+end intrinsic;
+
+intrinsic Dimension(M :: ModMatFld_FldPadExact) -> RngIntElt
+  {The dimension of M.}
+  if not assigned M`dimension then
+    M`dimension := Degree(M);
+  end if;
+  return M`dimension;
+end intrinsic;
+
+intrinsic Generators(M :: ModMatFld_FldPadExact) -> []
+  {The generators of M.}
+  if not assigned M`generators then
+    M`generators := [M| [i eq j select 1 else 0 : j in [1..Degree(M)]] : i in [1..Degree(M)]];
+  end if;
+  return M`generators;
+end intrinsic;
+
+///hide
+intrinsic ExistsCoveringStructure(M1 :: ModMatFld_FldPadExact, M2 :: ModMatFld_FldPadExact) -> BoolElt, .
+  {True if there is a space containing both M1 and M2.}
+  // special cases
+  if M1 eq M2 then
+    return true, M1;
+  elif Nrows(M1) ne Nrows(M2) or Ncols(M1) ne Ncols(M2) then
+    return false, _;
+  end if;
+  // general case
+  ok, F := ExistsCoveringStructure(BaseField(M1), BaseField(M2));
+  if not ok then
+    return false, _;
+  elif F eq BaseField(M1) then
+    return true, M1;
+  elif F eq BaseField(M2) then
+    return true, M2;
+  else
+    return true, KMatrixSpace(F, Nrows(M1), Ncols(M1));
+  end if;
+end intrinsic;
+
+///hide
+intrinsic CanChangeRing(m :: ModMatFldElt_FldPadExact, F :: FldPadExact) -> BoolElt, ModMatFldElt_FldPadExact
+  {True if the base ring of m can be changed to F.}
+  if BaseField(m) eq F then
+    return true, m;
+  end if;
+  ok, E := ExistsCoveringStructure(BaseField(m), F);
+  if ok then
+    return KMatrixSpace(E, Nrows(m), Ncols(m)) ! m;
+  else
+    return false, _;
+  end if;
+end intrinsic;
+
+///hide
+intrinsic ChangeRing(m :: ModMatFldElt_FldPadExact, F :: FldPadExact) -> ModMatFldElt_FldPadExact
+  {A copy of m with its base field changed to F.}
+  ok, n := CanChangeRing(m, F);
+  require ok: "cannot change ring";
+  return n;
+end intrinsic;
+
+intrinsic RowSpace(M :: ModMatFld_FldPadExact) -> ModTupFld_FldPadExact
+  {The vector space of rows of M.}
+  if not assigned M`row_space then
+    M`row_space := VectorSpace(BaseField(M), Ncols(M));
+  end if;
+  return M`row_space;
+end intrinsic;
+
+intrinsic TransposeSpace(M :: ModMatFld_FldPadExact) -> ModMatFld_FldPadExact
+  {The space of transposes of elements of M.}
+  if not assigned M`transpose_space then
+    M`transpose_space := KMatrixSpace(BaseField(M), Ncols(M), Nrows(M));
+  end if;
+  return M`transpose_space;
+end intrinsic;
+
+///## Matrix components
+///priority 1
+
+/// Number of rows and columns.
+intrinsic Nrows(m :: ModMatFldElt_FldPadExact) -> RngIntElt
+  {Number of rows.}
+  return Nrows(Parent(m));
+end intrinsic;
+
+///ditto
+intrinsic Ncols(m :: ModMatFldElt_FldPadExact) -> RngIntElt
+  {Number of columns.}
+  return Ncols(Parent(m));
+end intrinsic;
+
+intrinsic Eltseq(m :: ModMatFldElt_FldPadExact) -> []
+  {The components of m.}
+  if not assigned m`eltseq then
+    m`eltseq := [BaseField(m)| Component(m, i, j) : j in [1..Ncols(m)], i in [1..Nrows(m)]];
+  end if;
+  return m`eltseq;
+end intrinsic;
+
+intrinsic Component(m :: ModMatFldElt_FldPadExact, i :: RngIntElt, j :: RngIntElt) -> FldPadExactElt
+  {The jth component of the ith row of m.}
+  require 1 le i and i le Nrows(m): "i out of range";
+  require 1 le j and j le Ncols(m): "j out of range";
+  if not assigned m`component then
+    m`component := [PowerSequence(BaseField(m))| ];
+  end if;
+  if not IsDefined(m`component, i) then
+    m`component[i] := [BaseField(m)| ];
+  end if;
+  if not IsDefined(m`component[i], j) then
+    x := New(FldPadExactElt);
+    x`parent := BaseField(m);
+    x`dependencies := [* m *];
+    x`get_approximation := func<n, xds | xds[1][i,j]>;
+    Init(x);
+    m`component[i][j] := x;
+  end if;
+  return m`component[i][j];
+end intrinsic;
+
+intrinsic '@'(i :: RngIntElt, j :: RngIntElt, m :: ModMatFldElt_FldPadExact) -> FldPadExactElt
+  {"}
+  return Component(m, i, j);
+end intrinsic;
+
+intrinsic Rows(m :: ModMatFldElt_FldPadExact) -> []
+  {The rows of m.}
+  if not assigned m`rows then
+    m`rows := [RowSpace(Parent(m))| Row(m,i) : i in [1..Nrows(m)]];
+  end if;
+  return m`rows;
+end intrinsic;
+
+intrinsic Row(m :: ModMatFldElt_FldPadExact, i :: RngIntElt) -> FldPadExactElt
+  {The ith row of m.}
+  require 1 le i and i le Nrows(m): "i out of range";
+  if not assigned m`row then
+    m`row := [RowSpace(Parent(m))| ];
+  end if;
+  if not IsDefined(m`row, i) then
+    v := New(ModTupFldElt_FldPadExact);
+    v`parent := RowSpace(Parent(m));
+    v`dependencies := [* v`parent, m *];
+    v`get_approximation := func<n, xds | xds[1] ! (xds[2][i])>;
+    Init(v);
+    m`row[i] := v;
+  end if;
+  return m`row[i];
+end intrinsic;
+
+intrinsic '@'(i :: RngIntElt, m :: ModMatFldElt_FldPadExact) -> ModTupFldElt_FldPadExact
+  {"}
+  return Row(m, i);
+end intrinsic;
+
+///## Arithmetic
+
+///### Pointwise
+
+/// Matrices: Negation, addition, subtraction, sum.
+intrinsic '-'(m :: ModMatFldElt_FldPadExact) -> ModMatFldElt_FldPadExact
+  {Negation.}
+  if not assigned m`negation then
+    k := New(ModMatFldElt_FldPadExact);
+    k`parent := m`parent;
+    k`dependencies := [* m *];
+    k`get_approximation := func<n, xds | -xds[1]>;
+    Init(k);
+    k`negation := m;
+    m`negation := k;
+  end if;
+  return m`negation;
+end intrinsic;
+
+///ditto
+intrinsic '+'(m :: ModMatFldElt_FldPadExact, n :: ModMatFldElt_FldPadExact) -> ModMatFldElt_FldPadExact
+  {Addition.}
+  ok, M := ExistsCoveringStructure(Parent(m), Parent(n));
+  require ok: "not coercible to the same space";
+  return &+[M| m, n];
+end intrinsic;
+
+///hide
+intrinsic '+'(m :: ModMatFldElt_FldPadExact, n) -> .
+  {"}
+  return do_binop('+', m, n);
+end intrinsic;
+
+///hide
+intrinsic '+'(m, n :: ModMatFldElt_FldPadExact) -> .
+  {"}
+  return do_binop('+', m, n);
+end intrinsic;
+
+///ditto
+intrinsic '-'(m :: ModMatFldElt_FldPadExact, n :: ModMatFldElt_FldPadExact) -> ModMatFldElt_FldPadExact
+  {Subtraction.}
+  ok, M := ExistsCoveringStructure(Parent(m), Parent(n));
+  require ok: "not coercible to the same space";
+  k := New(ModMatFldElt_FldPadExact);
+  k`parent := M;
+  k`dependencies := [* M!m, M!n *];
+  k`get_approximation := func<n, xds | xds[1] - xds[2]>;
+  Init(k);
+  return k;
+end intrinsic;
+
+///hide
+intrinsic '-'(m :: ModMatFldElt_FldPadExact, n) -> .
+  {"}
+  return do_binop('-', m, n);
+end intrinsic;
+
+///hide
+intrinsic '-'(m, n :: ModMatFldElt_FldPadExact) -> .
+  {"}
+  return do_binop('-', m, n);
+end intrinsic;
+
+///ditto
+intrinsic '&+'(ms :: [ModMatFldElt_FldPadExact]) -> ModMatFldElt_FldPadExact
+  {Sum.}
+  if #ms eq 0 then
+    return Zero(Universe(ms));
+  end if;
+  k := New(ModMatFldElt_FldPadExact);
+  k`parent := Universe(ms);
+  k`dependencies := [* m : m in ms *];
+  k`get_approximation := func<n, xds | &+[xm : xm in xds]>;
+  Init(k);
+  return k;
+end intrinsic;
+
+///### Scalar
+
+/// Scalar multiplication and division.
+intrinsic '*'(m :: ModMatFldElt_FldPadExact, x :: FldPadExactElt) -> ModMatFldElt_FldPadExact
+  {Scalar multiplication.}
+  ok, F := ExistsCoveringStructure(BaseField(m), Parent(x));
+  require ok: "not coercible to same base field";
+  m2 := ChangeRing(m, F);
+  x2 := F ! x;
+  k := New(ModMatFldElt_FldPadExact);
+  k`parent := Parent(m2);
+  k`dependencies := [* m2, x2 *];
+  k`get_approximation := func<n, xds | xds[1] * xds[2]>;
+  Init(k);
+  return k;
+end intrinsic;
+
+///ditto
+intrinsic '*'(x :: FldPadExactElt, m :: ModMatFldElt_FldPadExact) -> .
+  {"}
+  return m * x;
+end intrinsic;
+
+///ditto
+intrinsic '/'(m :: ModMatFldElt_FldPadExact, x :: FldPadExactElt : Safe:=false) -> ModMatFldElt_FldPadExact
+  {Scalar division.}
+  ok, F := ExistsCoveringStructure(BaseField(m), Parent(x));
+  require ok: "not coercible to same base field";
+  m2 := ChangeRing(m, F);
+  x2 := F ! x;
+  k := New(ModTupFldElt_FldPadExact);
+  if Safe then
+    ok, n := IsDefinitelyNonzero(x2 : Minimize);
+    require ok: "x is weakly zero";
+    k`min_epoch := n;
+  else
+    EnsureAllApproximationsNonzero(x2);
+  end if;
+  k`parent := Parent(m2);
+  k`dependencies := [* m2, x2 *];
+  k`get_approximation := func<n, xds | xds[1] / xds[2]>;
+  Init(k);
+  return k;
+end intrinsic;
+
+///### Matrix
+
+intrinsic '*'(x :: ModTupFldElt_FldPadExact, y :: ModMatFldElt_FldPadExact) -> ModTupFldElt_FldPadExact
+  {Vector-matrix multiplication.}
+  ok, F := ExistsCoveringStructure(BaseField(x), BaseField(y));
+  require ok: "cannot coerce to same base field";
+  require Nrows(y) eq Ncols(x): "dimension mismatch";
+  x2 := ChangeRing(x, F);
+  y2 := ChangeRing(y, F);
+  z := New(ModTupFldElt_FldPadExact);
+  z`parent := KSpace(F, Ncols(y));
+  z`dependencies := [* z`parent, x2, y2 *];
+  z`get_approximation := func<n, xds | xds[1] ! (xds[2] * xds[3])>;
+  Init(z);
+  return z;
+end intrinsic;
+
+intrinsic '*'(x :: ModMatFldElt_FldPadExact, y :: ModMatFldElt_FldPadExact) -> ModMatFldElt_FldPadExact
+  {Matrix multiplication.}
+  ok, F := ExistsCoveringStructure(BaseField(x), BaseField(y));
+  require ok: "cannot coerce to same base field";
+  require Nrows(y) eq Ncols(x): "dimension mismatch";
+  x2 := ChangeRing(x, F);
+  y2 := ChangeRing(y, F);
+  z := New(ModMatFldElt_FldPadExact);
+  z`parent := KMatrixSpace(F, Nrows(x), Ncols(y));
+  z`dependencies := [* z`parent, x2, y2 *];
+  z`get_approximation := func<n, xds | xds[1] ! (xds[2] * xds[3])>;
+  Init(z);
+  return z;
+end intrinsic;
+
+intrinsic '^'(x :: ModMatFldElt_FldPadExact, n :: RngIntElt) -> ModMatFldElt_FldPadExact
+  {Matrix power.}
+  require Nrows(x) eq Ncols(x): "x must be square";
+  M := KMatrixSpace(BaseField(x), Nrows(x), Nrows(x));
+  if n eq 0 then
+    return Identity(M);
+  elif n lt 0 then
+    ok, xinv := IsDefinitelyInvertible(x);
+    require ok: "x is weakly non-invertible";
+    return xinv^(-n);
+  elif n eq 1 then
+    return M ! x;
+  else
+    z := New(ModMatFldElt_FldPadExact);
+    z`parent := M;
+    z`dependencies := [* M ! x *];
+    z`get_approximation := func<_n, xds | xds[1]^n>;
+    Init(z);
+    return z;
+  end if;
+end intrinsic;
+
+///## Transpose, determinant, inverse
+
+intrinsic Transpose(m :: ModMatFldElt_FldPadExact) -> ModMatFldElt_FldPadExact
+  {Transpose.}
+  mt := New(ModMatFldElt_FldPadExact);
+  mt`parent := TransposeSpace(Parent(m));
+  mt`dependencies := [* mt`parent, m *];
+  mt`get_approximation := func<n, xds | xds[1] ! Transpose(xds[2])>;
+  Init(mt);
+  return mt;
+end intrinsic;
+
+intrinsic Determinant(m :: ModMatFldElt_FldPadExact) -> FldPadExactElt
+  {Determinant.}
+  if not assigned m`determinant then
+    if Nrows(m) ne Ncols(m) then
+      det := BaseField(m) ! 0;
+    elif Nrows(m) eq 0 then
+      det := BaseField(m) ! 1;
+    else
+      det := New(FldPadExactElt);
+      det`parent := BaseField(m);
+      det`dependencies := [* m *];
+      det`get_approximation := func<n, xds | Determinant(xds[1])>;
+      Init(det);
+    end if;
+    m`determinant := det;
+  end if;
+  return m`determinant;
+end intrinsic;
+
+intrinsic IsDefinitelyInvertible(m :: ModMatFldElt_FldPadExact : Safe:=false) -> BoolElt, ModMatFldElt_FldPadExact
+  {True if m is definitely invertible. If so, also returns the inverse.}
+  if assigned m`inverse then
+    return true, m`inverse;
+  end if;
+  if Nrows(m) ne Ncols(m) then
+    return false, _;
+  elif Nrows(m) eq 0 then
+    m`inverse := Parent(m)![BaseField(m)|];
+    return true, m`inverse;
+  end if;
+  ok, n := ExistsEpochWithApproximation(m, func<xm | not IsWeaklyZero(Determinant(xm))> : Minimize);
+  if not ok then
+    return false, _;
+  end if;
+  minv := New(ModMatFldElt_FldPadExact);
+  if Safe then
+    minv`min_epoch := n;
+  else
+    InterpolateUpTo(m, n);
+    ok, n2 := ExistsEpochWithApproximation(m, func<xm | not IsWeaklyZero(Determinant(xm))> : Minimize);
+    assert ok;
+    assert n2 le n;
+    minv`min_epoch := n2;
+  end if;
+  minv`parent := KMatrixSpace(BaseField(m), Nrows(m), Nrows(m));
+  minv`dependencies := [* minv`parent, m *];
+  minv`get_approximation := func<n, xds | xds[1] ! (xds[2]^-1)>;
+  Init(minv);
+  m`inverse := minv;
+  return true, minv;
+end intrinsic;

@@ -208,6 +208,22 @@ intrinsic _ExactpAdics_IsWeaklyEqual(x :: Tup, y :: Tup) -> BoolElt
   return forall{i : i in [1..#x] | WEQ(x[i], y[i])};
 end intrinsic;
 
+intrinsic _ExactpAdics_IsWeaklyEqual(x :: ModTupFldElt[FldPad], y :: ModTupFldElt[FldPad]) -> BoolElt
+  {"}
+  require Degree(x) eq Degree(y): "different degrees";
+  xs := Eltseq(x);
+  ys := Eltseq(y);
+  return forall{i : i in [1..#xs] | _ExactpAdics_IsWeaklyEqual(xs[i], ys[i])};
+end intrinsic;
+
+intrinsic _ExactpAdics_IsWeaklyEqual(x :: ModMatFldElt[FldPad], y :: ModMatFldElt[FldPad]) -> BoolElt
+  {"}
+  require Nrows(x) eq Nrows(y) and Ncols(x) eq Ncols(y): "different sizes";
+  xs := Eltseq(x);
+  ys := Eltseq(y);
+  return forall{i : i in [1..#xs] | _ExactpAdics_IsWeaklyEqual(xs[i], ys[i])};
+end intrinsic;
+
 intrinsic _ExactpAdics_Tower(E :: FldPad, F :: FldPad) -> []
   {The tower of fields from F up to E.}
   if F eq E then
