@@ -471,88 +471,13 @@ The `i`th row of `m`.
 
 
 
-<a id="-"></a><a id="---ModMatFldElt_FldPadExact"></a><a id="+"></a><a id="+--ModMatFldElt_FldPadExact--etc"></a><a id="+--ModMatFldElt_FldPadExact--ModMatFldElt_FldPadExact"></a><a id="---ModMatFldElt_FldPadExact--etc"></a><a id="---ModMatFldElt_FldPadExact--ModMatFldElt_FldPadExact"></a><a id="&+"></a><a id="&+--seq-ModMatFldElt_FldPadExact"></a>
-> **\'-\'** (m :: *ModMatFldElt_FldPadExact*)
-> 
-> **\'+\'** (m :: *ModMatFldElt_FldPadExact*, n :: *ModMatFldElt_FldPadExact*)
-> 
-> **\'-\'** (m :: *ModMatFldElt_FldPadExact*, n :: *ModMatFldElt_FldPadExact*)
-> 
-> **\'&+\'** (ms :: [*ModMatFldElt_FldPadExact*])
-> 
-> -> *ModMatFldElt_FldPadExact*
-> {:.ret}
-{:.intrinsic}
-
-Matrices: Negation, addition, subtraction, sum.
-
-
-
-
-
-
-
-
-<a id="*"></a><a id="*--ModMatFldElt_FldPadExact--etc"></a><a id="*--ModMatFldElt_FldPadExact--FldPadExactElt"></a><a id="*--FldPadExactElt--etc"></a><a id="*--FldPadExactElt--ModMatFldElt_FldPadExact"></a><a id="/"></a><a id="/--ModMatFldElt_FldPadExact--etc"></a><a id="/--ModMatFldElt_FldPadExact--FldPadExactElt"></a>
-> **\'\*\'** (m :: *ModMatFldElt_FldPadExact*, x :: *FldPadExactElt*)
-> 
-> **\'/\'** (m :: *ModMatFldElt_FldPadExact*, x :: *FldPadExactElt*)
-> 
-> -> *ModMatFldElt_FldPadExact*
-> {:.ret}
-> 
-> **\'\*\'** (x :: *FldPadExactElt*, m :: *ModMatFldElt_FldPadExact*)
-> 
-> -> Any
-> {:.ret}
-{:.intrinsic}
-
-Scalar multiplication and division.
-
-
-
-
-
-**Parameters**
-- `Safe`
-
-<a id="*-2"></a><a id="*--ModTupFldElt_FldPadExact--etc"></a><a id="*--ModTupFldElt_FldPadExact--ModMatFldElt_FldPadExact"></a>
-> **\'\*\'** (x :: *ModTupFldElt_FldPadExact*, y :: *ModMatFldElt_FldPadExact*)
-> 
-> -> *ModTupFldElt_FldPadExact*
-> {:.ret}
-{:.intrinsic}
-
-Vector-matrix multiplication.
-
-
-<a id="*-3"></a><a id="*--ModMatFldElt_FldPadExact--etc-2"></a><a id="*--ModMatFldElt_FldPadExact--ModMatFldElt_FldPadExact"></a>
-> **\'\*\'** (x :: *ModMatFldElt_FldPadExact*, y :: *ModMatFldElt_FldPadExact*)
-> 
-> -> *ModMatFldElt_FldPadExact*
-> {:.ret}
-{:.intrinsic}
-
-Matrix multiplication.
-
-
-<a id="^"></a><a id="^--ModMatFldElt_FldPadExact--etc"></a><a id="^--ModMatFldElt_FldPadExact--RngIntElt"></a>
-> **\'^\'** (x :: *ModMatFldElt_FldPadExact*, n :: *RngIntElt*)
-> 
-> -> *ModMatFldElt_FldPadExact*
-> {:.ret}
-{:.intrinsic}
-
-Matrix power.
-
-
 ## Arithmetic
 {:#arithmetic}
 
 ### Pointwise
 {:#pointwise}
 
-<a id="--2"></a><a id="---ModTupFldElt_FldPadExact"></a><a id="+-2"></a><a id="+--ModTupFldElt_FldPadExact--etc"></a><a id="+--ModTupFldElt_FldPadExact--ModTupFldElt_FldPadExact"></a><a id="---ModTupFldElt_FldPadExact--etc"></a><a id="---ModTupFldElt_FldPadExact--ModTupFldElt_FldPadExact"></a><a id="&+-2"></a><a id="&+--seq-ModTupFldElt_FldPadExact"></a>
+<a id="-"></a><a id="---ModTupFldElt_FldPadExact"></a><a id="+"></a><a id="+--ModTupFldElt_FldPadExact--etc"></a><a id="+--ModTupFldElt_FldPadExact--ModTupFldElt_FldPadExact"></a><a id="---ModTupFldElt_FldPadExact--etc"></a><a id="---ModTupFldElt_FldPadExact--ModTupFldElt_FldPadExact"></a><a id="&+"></a><a id="&+--seq-ModTupFldElt_FldPadExact"></a>
 > **\'-\'** (v :: *ModTupFldElt_FldPadExact*)
 > 
 > **\'+\'** (v :: *ModTupFldElt_FldPadExact*, w :: *ModTupFldElt_FldPadExact*)
@@ -574,10 +499,32 @@ Vectors: Negation, addition, subtraction, sum.
 
 
 
+<a id="--2"></a><a id="---ModMatFldElt_FldPadExact"></a><a id="+-2"></a><a id="+--ModMatFldElt_FldPadExact--etc"></a><a id="+--ModMatFldElt_FldPadExact--ModMatFldElt_FldPadExact"></a><a id="---ModMatFldElt_FldPadExact--etc"></a><a id="---ModMatFldElt_FldPadExact--ModMatFldElt_FldPadExact"></a><a id="&+-2"></a><a id="&+--seq-ModMatFldElt_FldPadExact"></a>
+> **\'-\'** (m :: *ModMatFldElt_FldPadExact*)
+> 
+> **\'+\'** (m :: *ModMatFldElt_FldPadExact*, n :: *ModMatFldElt_FldPadExact*)
+> 
+> **\'-\'** (m :: *ModMatFldElt_FldPadExact*, n :: *ModMatFldElt_FldPadExact*)
+> 
+> **\'&+\'** (ms :: [*ModMatFldElt_FldPadExact*])
+> 
+> -> *ModMatFldElt_FldPadExact*
+> {:.ret}
+{:.intrinsic}
+
+Matrices: Negation, addition, subtraction, sum.
+
+
+
+
+
+
+
+
 ### Scalar
 {:#scalar}
 
-<a id="*-4"></a><a id="*--ModTupFldElt_FldPadExact--etc-2"></a><a id="*--ModTupFldElt_FldPadExact--FldPadExactElt"></a><a id="*--FldPadExactElt--etc-2"></a><a id="*--FldPadExactElt--ModTupFldElt_FldPadExact"></a><a id="/-2"></a><a id="/--ModTupFldElt_FldPadExact--etc"></a><a id="/--ModTupFldElt_FldPadExact--FldPadExactElt"></a>
+<a id="*"></a><a id="*--ModTupFldElt_FldPadExact--etc"></a><a id="*--ModTupFldElt_FldPadExact--FldPadExactElt"></a><a id="*--FldPadExactElt--etc"></a><a id="*--FldPadExactElt--ModTupFldElt_FldPadExact"></a><a id="/"></a><a id="/--ModTupFldElt_FldPadExact--etc"></a><a id="/--ModTupFldElt_FldPadExact--FldPadExactElt"></a>
 > **\'\*\'** (v :: *ModTupFldElt_FldPadExact*, x :: *FldPadExactElt*)
 > 
 > **\'/\'** (v :: *ModTupFldElt_FldPadExact*, x :: *FldPadExactElt*)
@@ -586,6 +533,29 @@ Vectors: Negation, addition, subtraction, sum.
 > {:.ret}
 > 
 > **\'\*\'** (x :: *FldPadExactElt*, v :: *ModTupFldElt_FldPadExact*)
+> 
+> -> Any
+> {:.ret}
+{:.intrinsic}
+
+Scalar multiplication and division.
+
+
+
+
+
+**Parameters**
+- `Safe`
+
+<a id="*-2"></a><a id="*--ModMatFldElt_FldPadExact--etc"></a><a id="*--ModMatFldElt_FldPadExact--FldPadExactElt"></a><a id="*--FldPadExactElt--etc-2"></a><a id="*--FldPadExactElt--ModMatFldElt_FldPadExact"></a><a id="/-2"></a><a id="/--ModMatFldElt_FldPadExact--etc"></a><a id="/--ModMatFldElt_FldPadExact--FldPadExactElt"></a>
+> **\'\*\'** (m :: *ModMatFldElt_FldPadExact*, x :: *FldPadExactElt*)
+> 
+> **\'/\'** (m :: *ModMatFldElt_FldPadExact*, x :: *FldPadExactElt*)
+> 
+> -> *ModMatFldElt_FldPadExact*
+> {:.ret}
+> 
+> **\'\*\'** (x :: *FldPadExactElt*, m :: *ModMatFldElt_FldPadExact*)
 > 
 > -> Any
 > {:.ret}
@@ -621,6 +591,36 @@ Inner product.
 {:.intrinsic}
 
 Norm.
+
+
+<a id="*-3"></a><a id="*--ModTupFldElt_FldPadExact--etc-2"></a><a id="*--ModTupFldElt_FldPadExact--ModMatFldElt_FldPadExact"></a>
+> **\'\*\'** (x :: *ModTupFldElt_FldPadExact*, y :: *ModMatFldElt_FldPadExact*)
+> 
+> -> *ModTupFldElt_FldPadExact*
+> {:.ret}
+{:.intrinsic}
+
+Vector-matrix multiplication.
+
+
+<a id="*-4"></a><a id="*--ModMatFldElt_FldPadExact--etc-2"></a><a id="*--ModMatFldElt_FldPadExact--ModMatFldElt_FldPadExact"></a>
+> **\'\*\'** (x :: *ModMatFldElt_FldPadExact*, y :: *ModMatFldElt_FldPadExact*)
+> 
+> -> *ModMatFldElt_FldPadExact*
+> {:.ret}
+{:.intrinsic}
+
+Matrix multiplication.
+
+
+<a id="^"></a><a id="^--ModMatFldElt_FldPadExact--etc"></a><a id="^--ModMatFldElt_FldPadExact--RngIntElt"></a>
+> **\'^\'** (x :: *ModMatFldElt_FldPadExact*, n :: *RngIntElt*)
+> 
+> -> *ModMatFldElt_FldPadExact*
+> {:.ret}
+{:.intrinsic}
+
+Matrix power.
 
 
 ## Transpose, determinant, inverse
