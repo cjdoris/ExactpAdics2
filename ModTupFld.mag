@@ -308,7 +308,7 @@ end intrinsic;
 ///## Vector components
 ///priority 2
 
-/// Number of rows and columns
+/// Number of rows (always 1) and columns.
 intrinsic Nrows(v :: ModTupFldElt_FldPadExact) -> RngIntElt
   {The number of rows in v (always 1).}
   return 1;
@@ -323,7 +323,7 @@ end intrinsic;
 intrinsic Eltseq(v :: ModTupFldElt_FldPadExact) -> []
   {The components of v as a sequence.}
   if not assigned v`eltseq then
-    v`eltseq := [BaseField(v)| Component(v, i) : i in [1..Nrows(v)]];
+    v`eltseq := [BaseField(v)| Component(v, i) : i in [1..Ncols(v)]];
   end if;
   return v`eltseq;
 end intrinsic;
