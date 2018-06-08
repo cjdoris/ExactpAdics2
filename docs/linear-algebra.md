@@ -5,13 +5,15 @@
 **Contents**
 * [Creation of vector spaces](#creation-of-vector-spaces)
 * [Creation of vectors](#creation-of-vectors)
+  * [From coefficients](#from-coefficients)
+  * [Special forms](#special-forms)
   * [Coercion](#coercion)
 * [Basic properties of vector spaces](#basic-properties-of-vector-spaces)
 * [Vector components](#vector-components)
 * [Creation of matrix spaces](#creation-of-matrix-spaces)
 * [Creation of matrices](#creation-of-matrices)
-  * [From coefficients](#from-coefficients)
-  * [Special forms](#special-forms)
+  * [From coefficients](#from-coefficients-2)
+  * [Special forms](#special-forms-2)
   * [Coercion](#coercion-2)
 * [Basic properties of matrix spaces](#basic-properties-of-matrix-spaces)
 * [Matrix components](#matrix-components)
@@ -40,6 +42,50 @@ The full vector space over `K` of dimension `n`.
 
 ## Creation of vectors
 {:#creation-of-vectors}
+
+### From coefficients
+{:#from-coefficients}
+
+<a id="Vector"></a><a id="Vector--FldPadExact--etc"></a><a id="Vector--FldPadExact--RngIntElt--any"></a>
+> **Vector** (F :: *FldPadExact*, n :: *RngIntElt*, cs)
+> 
+> -> *ModTupFldElt_FldPadExact*
+> {:.ret}
+{:.intrinsic}
+
+The vector of length `n` over `F` defined by `cs`.
+
+
+<a id="Vector-2"></a><a id="Vector--seq-FldPadExactElt"></a>
+> **Vector** (cs :: [*FldPadExactElt*])
+> 
+> -> *ModTupFldElt_FldPadExact*
+> {:.ret}
+{:.intrinsic}
+
+The vector whose coefficients are given by `cs`.
+
+
+### Special forms
+{:#special-forms}
+
+<a id="Zero"></a><a id="Zero--ModTupFld_FldPadExact"></a><a id="ZeroVector"></a><a id="ZeroVector--ModTupFld_FldPadExact"></a><a id="ZeroVector--FldPadExact--etc"></a><a id="ZeroVector--FldPadExact--RngIntElt"></a>
+> **Zero** (V :: *ModTupFld_FldPadExact*)
+> 
+> **ZeroVector** (V :: *ModTupFld_FldPadExact*)
+> 
+> **ZeroVector** (F :: *FldPadExact*, n :: *RngIntElt*)
+> 
+> -> *ModTupFldElt_FldPadExact*
+> {:.ret}
+{:.intrinsic}
+
+The zero vector.
+
+
+
+
+
 
 ### Coercion
 {:#coercion}
@@ -191,7 +237,7 @@ The space of `m x n` matrices over `K`.
 {:#creation-of-matrices}
 
 ### From coefficients
-{:#from-coefficients}
+{:#from-coefficients-2}
 
 <a id="Matrix"></a><a id="Matrix--FldPadExactElt--etc"></a><a id="Matrix--FldPadExactElt--RngIntElt--RngIntElt--any"></a>
 > **Matrix** (K :: *FldPadExactElt*, nrows :: *RngIntElt*, ncols :: *RngIntElt*, cs)
@@ -228,9 +274,9 @@ The matrix whose rows are given by each entry in `cs`.
 
 
 ### Special forms
-{:#special-forms}
+{:#special-forms-2}
 
-<a id="Zero"></a><a id="Zero--ModMatFld_FldPadExact"></a><a id="ZeroMatrix"></a><a id="ZeroMatrix--ModMatFld_FldPadExact"></a><a id="ZeroMatrix--FldPadExact--etc"></a><a id="ZeroMatrix--FldPadExact--RngIntElt--RngIntElt"></a>
+<a id="Zero-2"></a><a id="Zero--ModMatFld_FldPadExact"></a><a id="ZeroMatrix"></a><a id="ZeroMatrix--ModMatFld_FldPadExact"></a><a id="ZeroMatrix--FldPadExact--etc"></a><a id="ZeroMatrix--FldPadExact--RngIntElt--RngIntElt"></a>
 > **Zero** (M :: *ModMatFld_FldPadExact*)
 > 
 > **ZeroMatrix** (M :: *ModMatFld_FldPadExact*)

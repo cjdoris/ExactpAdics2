@@ -30,6 +30,7 @@ declare attributes ModTupFld_FldPadExact
   // CACHE
   , generators         // sequence of generators (in this space)
   , dimension          // Dimension(*)
+  , zero               // Zero(*)
   ;
 
 declare type ModTupFldElt_FldPadExact: PadExactElt;
@@ -154,6 +155,43 @@ end intrinsic;
 
 ///## Creation of vectors
 ///priority 2
+
+///### From coefficients
+
+intrinsic Vector(F :: FldPadExact, n :: RngIntElt, cs) -> ModTupFldElt_FldPadExact
+  {The vector of length n over F defined by cs.}
+  return KSpace(F, n) ! cs;
+end intrinsic;
+
+intrinsic Vector(cs :: [FldPadExactElt]) -> ModTupFldElt_FldPadExact
+  {The vector whose coefficients are given by cs.}
+  return Vector(Universe(cs), #cs, cs);
+end intrinsic;
+
+///### Special forms
+
+intrinsic Zero(V :: ModTupFld_FldPadExact) -> ModTupFldElt_FldPadExact
+  {The zero vector.}
+  if not assigned V`zero then
+    z := New(ModTupFldElt_FldPadExact);
+    z`parent := V;
+    z`dependencies := [* V *];
+    z`get_approximation := func<n, xds | Zero(xds[1])>;
+    Init(z);
+    V`zero := z;
+  end if;
+  return V`zero;
+end intrinsic;
+
+intrinsic ZeroVector(V :: ModTupFld_FldPadExact) -> ModTupFldElt_FldPadExact
+  {"}
+  return Zero(V);
+end intrinsic;
+
+intrinsic ZeroVector(F :: FldPadExact, n :: RngIntElt) -> ModTupFldElt_FldPadExact
+  {"}
+  return Zero(KSpace(F, n));
+end intrinsic;
 
 ///### Coercion
 ///
