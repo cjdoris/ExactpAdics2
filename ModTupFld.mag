@@ -351,9 +351,9 @@ end intrinsic;
 
 
 ///## Arithmetic
-///### Pointwise
+///### Addition
 
-/// Vectors: Negation, addition, subtraction, sum.
+/// Negation, addition, subtraction, sum of vectors.
 intrinsic '-'(v :: ModTupFldElt_FldPadExact) -> ModTupFldElt_FldPadExact
   {Negation.}
   if not assigned v`negation then
@@ -427,9 +427,9 @@ intrinsic '&+'(vs :: [ModTupFldElt_FldPadExact]) -> ModTupFldElt_FldPadExact
   return u;
 end intrinsic;
 
-///### Scalar
+///### Scalar multiplication
 
-/// Scalar multiplication and division.
+/// Scalar multiplication and division of vectors.
 intrinsic '*'(v :: ModTupFldElt_FldPadExact, x :: FldPadExactElt) -> ModTupFldElt_FldPadExact
   {Scalar multiplication.}
   ok, F := ExistsCoveringStructure(BaseField(v), Parent(x));
@@ -445,12 +445,13 @@ intrinsic '*'(v :: ModTupFldElt_FldPadExact, x :: FldPadExactElt) -> ModTupFldEl
 end intrinsic;
 
 ///ditto
-intrinsic '*'(x :: FldPadExactElt, v :: ModTupFldElt_FldPadExact) -> .
+intrinsic '*'(x :: FldPadExactElt, v :: ModTupFldElt_FldPadExact) -> ModTupFldElt_FldPadExact
   {"}
   return v * x;
 end intrinsic;
 
 ///ditto
+///param Safe:=false (Divide only.) When true, this may be used as an intermediate variable in [`WithDependencies`]({{site.baseurl}}/internals#WithDependencies) with the `Fast` option.
 intrinsic '/'(v :: ModTupFldElt_FldPadExact, x :: FldPadExactElt : Safe:=false) -> ModTupFldElt_FldPadExact
   {Scalar division.}
   ok, F := ExistsCoveringStructure(BaseField(v), Parent(x));
@@ -472,8 +473,9 @@ intrinsic '/'(v :: ModTupFldElt_FldPadExact, x :: FldPadExactElt : Safe:=false) 
   return w;
 end intrinsic;
 
-///### Matrix
+///### Matrix multiplication
 
+/// Inner product and norm.
 intrinsic InnerProduct(v :: ModTupFldElt_FldPadExact, w :: ModTupFldElt_FldPadExact) -> ModTupFldElt_FldPadExact
   {Inner product.}
   ok, V := ExistsCoveringStructure(Parent(v), Parent(w));
@@ -498,6 +500,7 @@ intrinsic InnerProduct(v, w :: ModTupFldElt_FldPadExact) -> .
   return do_binop(InnerProduct, v, w);
 end intrinsic;
 
+///ditto
 intrinsic Norm(v :: ModTupFldElt_FldPadExact) -> ModTupFldElt_FldPadExact
   {Norm.}
   if not assigned v`norm then

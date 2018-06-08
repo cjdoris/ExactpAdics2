@@ -16,9 +16,9 @@
 * [Basic properties of matrix spaces](#basic-properties-of-matrix-spaces)
 * [Matrix components](#matrix-components)
 * [Arithmetic](#arithmetic)
-  * [Pointwise](#pointwise)
-  * [Scalar](#scalar)
-  * [Matrix](#matrix)
+  * [Addition](#addition)
+  * [Scalar multiplication](#scalar-multiplication)
+  * [Matrix multiplication](#matrix-multiplication)
 * [Transpose, determinant, inverse](#transpose-determinant-inverse)
 
 ## Creation of vector spaces
@@ -474,8 +474,8 @@ The `i`th row of `m`.
 ## Arithmetic
 {:#arithmetic}
 
-### Pointwise
-{:#pointwise}
+### Addition
+{:#addition}
 
 <a id="-"></a><a id="---ModTupFldElt_FldPadExact"></a><a id="+"></a><a id="+--ModTupFldElt_FldPadExact--etc"></a><a id="+--ModTupFldElt_FldPadExact--ModTupFldElt_FldPadExact"></a><a id="---ModTupFldElt_FldPadExact--etc"></a><a id="---ModTupFldElt_FldPadExact--ModTupFldElt_FldPadExact"></a><a id="&+"></a><a id="&+--seq-ModTupFldElt_FldPadExact"></a>
 > **\'-\'** (v :: *ModTupFldElt_FldPadExact*)
@@ -490,7 +490,7 @@ The `i`th row of `m`.
 > {:.ret}
 {:.intrinsic}
 
-Vectors: Negation, addition, subtraction, sum.
+Negation, addition, subtraction, sum of vectors.
 
 
 
@@ -512,7 +512,7 @@ Vectors: Negation, addition, subtraction, sum.
 > {:.ret}
 {:.intrinsic}
 
-Matrices: Negation, addition, subtraction, sum.
+Negation, addition, subtraction, sum of matrices.
 
 
 
@@ -521,76 +521,64 @@ Matrices: Negation, addition, subtraction, sum.
 
 
 
-### Scalar
-{:#scalar}
+### Scalar multiplication
+{:#scalar-multiplication}
 
 <a id="*"></a><a id="*--ModTupFldElt_FldPadExact--etc"></a><a id="*--ModTupFldElt_FldPadExact--FldPadExactElt"></a><a id="*--FldPadExactElt--etc"></a><a id="*--FldPadExactElt--ModTupFldElt_FldPadExact"></a><a id="/"></a><a id="/--ModTupFldElt_FldPadExact--etc"></a><a id="/--ModTupFldElt_FldPadExact--FldPadExactElt"></a>
 > **\'\*\'** (v :: *ModTupFldElt_FldPadExact*, x :: *FldPadExactElt*)
+> 
+> **\'\*\'** (x :: *FldPadExactElt*, v :: *ModTupFldElt_FldPadExact*)
 > 
 > **\'/\'** (v :: *ModTupFldElt_FldPadExact*, x :: *FldPadExactElt*)
 > 
 > -> *ModTupFldElt_FldPadExact*
 > {:.ret}
-> 
-> **\'\*\'** (x :: *FldPadExactElt*, v :: *ModTupFldElt_FldPadExact*)
-> 
-> -> Any
-> {:.ret}
 {:.intrinsic}
 
-Scalar multiplication and division.
+Scalar multiplication and division of vectors.
 
 
 
 
 
 **Parameters**
-- `Safe`
+- `Safe := false`: (Divide only.) When true, this may be used as an intermediate variable in [`WithDependencies`]({{site.baseurl}}/internals#WithDependencies) with the `Fast` option.
 
 <a id="*-2"></a><a id="*--ModMatFldElt_FldPadExact--etc"></a><a id="*--ModMatFldElt_FldPadExact--FldPadExactElt"></a><a id="*--FldPadExactElt--etc-2"></a><a id="*--FldPadExactElt--ModMatFldElt_FldPadExact"></a><a id="/-2"></a><a id="/--ModMatFldElt_FldPadExact--etc"></a><a id="/--ModMatFldElt_FldPadExact--FldPadExactElt"></a>
 > **\'\*\'** (m :: *ModMatFldElt_FldPadExact*, x :: *FldPadExactElt*)
+> 
+> **\'\*\'** (x :: *FldPadExactElt*, m :: *ModMatFldElt_FldPadExact*)
 > 
 > **\'/\'** (m :: *ModMatFldElt_FldPadExact*, x :: *FldPadExactElt*)
 > 
 > -> *ModMatFldElt_FldPadExact*
 > {:.ret}
-> 
-> **\'\*\'** (x :: *FldPadExactElt*, m :: *ModMatFldElt_FldPadExact*)
-> 
-> -> Any
-> {:.ret}
 {:.intrinsic}
 
-Scalar multiplication and division.
+Scalar multiplication and division of matrices.
 
 
 
 
 
 **Parameters**
-- `Safe`
+- `Safe := false`: (Divide only.) When true, this may be used as an intermediate variable in [`WithDependencies`]({{site.baseurl}}/internals#WithDependencies) with the `Fast` option.
 
-### Matrix
-{:#matrix}
+### Matrix multiplication
+{:#matrix-multiplication}
 
-<a id="InnerProduct"></a><a id="InnerProduct--ModTupFldElt_FldPadExact--etc"></a><a id="InnerProduct--ModTupFldElt_FldPadExact--ModTupFldElt_FldPadExact"></a>
+<a id="InnerProduct"></a><a id="InnerProduct--ModTupFldElt_FldPadExact--etc"></a><a id="InnerProduct--ModTupFldElt_FldPadExact--ModTupFldElt_FldPadExact"></a><a id="Norm"></a><a id="Norm--ModTupFldElt_FldPadExact"></a>
 > **InnerProduct** (v :: *ModTupFldElt_FldPadExact*, w :: *ModTupFldElt_FldPadExact*)
 > 
-> -> *ModTupFldElt_FldPadExact*
-> {:.ret}
-{:.intrinsic}
-
-Inner product.
-
-
-<a id="Norm"></a><a id="Norm--ModTupFldElt_FldPadExact"></a>
 > **Norm** (v :: *ModTupFldElt_FldPadExact*)
 > 
 > -> *ModTupFldElt_FldPadExact*
 > {:.ret}
 {:.intrinsic}
 
-Norm.
+Inner product and norm.
+
+
 
 
 <a id="*-3"></a><a id="*--ModTupFldElt_FldPadExact--etc-2"></a><a id="*--ModTupFldElt_FldPadExact--ModMatFldElt_FldPadExact"></a>
@@ -620,8 +608,10 @@ Matrix multiplication.
 > {:.ret}
 {:.intrinsic}
 
-Matrix power.
+Matrix power. Negative powers are allowed for invertible matrices.
 
+**Parameters**
+- `Safe := false`: When true, this may be used as an intermediate variable in [`WithDependencies`]({{site.baseurl}}/internals#WithDependencies) with the `Fast` option.
 
 ## Transpose, determinant, inverse
 {:#transpose-determinant-inverse}
@@ -656,5 +646,5 @@ Determinant.
 True if `m` is definitely invertible. If so, also returns the inverse.
 
 **Parameters**
-- `Safe`
+- `Safe := false`: When true, the inverse may be used as an intermediate variable in [`WithDependencies`]({{site.baseurl}}/internals#WithDependencies) with the `Fast` option.
 

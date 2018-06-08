@@ -526,9 +526,9 @@ end intrinsic;
 
 ///## Arithmetic
 
-///### Pointwise
+///### Addition
 
-/// Matrices: Negation, addition, subtraction, sum.
+/// Negation, addition, subtraction, sum of matrices.
 intrinsic '-'(m :: ModMatFldElt_FldPadExact) -> ModMatFldElt_FldPadExact
   {Negation.}
   if not assigned m`negation then
@@ -602,9 +602,9 @@ intrinsic '&+'(ms :: [ModMatFldElt_FldPadExact]) -> ModMatFldElt_FldPadExact
   return k;
 end intrinsic;
 
-///### Scalar
+///### Scalar multiplication
 
-/// Scalar multiplication and division.
+/// Scalar multiplication and division of matrices.
 intrinsic '*'(m :: ModMatFldElt_FldPadExact, x :: FldPadExactElt) -> ModMatFldElt_FldPadExact
   {Scalar multiplication.}
   ok, F := ExistsCoveringStructure(BaseField(m), Parent(x));
@@ -620,12 +620,13 @@ intrinsic '*'(m :: ModMatFldElt_FldPadExact, x :: FldPadExactElt) -> ModMatFldEl
 end intrinsic;
 
 ///ditto
-intrinsic '*'(x :: FldPadExactElt, m :: ModMatFldElt_FldPadExact) -> .
+intrinsic '*'(x :: FldPadExactElt, m :: ModMatFldElt_FldPadExact) -> ModMatFldElt_FldPadExact
   {"}
   return m * x;
 end intrinsic;
 
 ///ditto
+///param Safe:=false (Divide only.) When true, this may be used as an intermediate variable in [`WithDependencies`]({{site.baseurl}}/internals#WithDependencies) with the `Fast` option.
 intrinsic '/'(m :: ModMatFldElt_FldPadExact, x :: FldPadExactElt : Safe:=false) -> ModMatFldElt_FldPadExact
   {Scalar division.}
   ok, F := ExistsCoveringStructure(BaseField(m), Parent(x));
@@ -647,7 +648,7 @@ intrinsic '/'(m :: ModMatFldElt_FldPadExact, x :: FldPadExactElt : Safe:=false) 
   return k;
 end intrinsic;
 
-///### Matrix
+///### Matrix multiplication
 
 intrinsic '*'(x :: ModTupFldElt_FldPadExact, y :: ModMatFldElt_FldPadExact) -> ModTupFldElt_FldPadExact
   {Vector-matrix multiplication.}
@@ -679,14 +680,15 @@ intrinsic '*'(x :: ModMatFldElt_FldPadExact, y :: ModMatFldElt_FldPadExact) -> M
   return z;
 end intrinsic;
 
-intrinsic '^'(x :: ModMatFldElt_FldPadExact, n :: RngIntElt) -> ModMatFldElt_FldPadExact
-  {Matrix power.}
+///param Safe:=false When true, this may be used as an intermediate variable in [`WithDependencies`]({{site.baseurl}}/internals#WithDependencies) with the `Fast` option.
+intrinsic '^'(x :: ModMatFldElt_FldPadExact, n :: RngIntElt : Safe:=false) -> ModMatFldElt_FldPadExact
+  {Matrix power. Negative powers are allowed for invertible matrices.}
   require Nrows(x) eq Ncols(x): "x must be square";
   M := KMatrixSpace(BaseField(x), Nrows(x), Nrows(x));
   if n eq 0 then
     return Identity(M);
   elif n lt 0 then
-    ok, xinv := IsDefinitelyInvertible(x);
+    ok, xinv := IsDefinitelyInvertible(x : Safe:=Safe);
     require ok: "x is weakly non-invertible";
     return xinv^(-n);
   elif n eq 1 then
@@ -732,6 +734,7 @@ intrinsic Determinant(m :: ModMatFldElt_FldPadExact) -> FldPadExactElt
   return m`determinant;
 end intrinsic;
 
+///param Safe:=false When true, the inverse may be used as an intermediate variable in [`WithDependencies`]({{site.baseurl}}/internals#WithDependencies) with the `Fast` option.
 intrinsic IsDefinitelyInvertible(m :: ModMatFldElt_FldPadExact : Safe:=false) -> BoolElt, ModMatFldElt_FldPadExact
   {True if m is definitely invertible. If so, also returns the inverse.}
   if assigned m`inverse then
