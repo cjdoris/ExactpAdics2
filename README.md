@@ -17,7 +17,16 @@ It differs from [the first implementation (`ExactpAdics`)](https://github.com/cj
 - Remove (backwards-incompatible change to user interface, increment major version)
 ```
 
-### Pending release
+### v0.3.0
+
+```
+~ Now licensed under GPL.
+~ Homomorphism constructors have been reimplemented.
++ Adds representations for vector spaces, vectors and matrices over p-adic fields.
++ Adds `DiscriminantValuation`, `VectorSpace`, `StandardForm` and `OptimizedRepresentation` for field extensions.
++ Adds `SplittingField`.
+! Fixes bug in `IsCoercible`
+```
 
 ### v0.2.0
 ```
@@ -44,7 +53,7 @@ This and the original `ExactpAdics` share some common code from [the `ExactpAdic
 Documentation is generated using [magdoc](https://cjdoris.github.io/magdoc) with the following command:
 
 ```
-magdoc.py -o docs FldPad.mag Ramification.mag HomFldPadExact.mag RngUPol.mag Factorization_new.mag common/Factorization_new.mag RngMPol.mag SetCart.mag ValFldPad.mag ValRngUPol.mag Generics.mag Version.mag State.mag DefaultAssociativeArray.mag Promotion.mag
+magdoc.py -o docs FldPad.mag Ramification.mag HomFldPadExact.mag RngUPol.mag Factorization_new.mag common/Factorization_new.mag RngMPol.mag ModTupFld.mag ModMatFld.mag SetCart.mag ValFldPad.mag ValRngUPol.mag Generics.mag Version.mag State.mag DefaultAssociativeArray.mag Promotion.mag
 ```
 
 We don't currently document the `Utils.mag`.

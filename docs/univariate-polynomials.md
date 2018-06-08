@@ -433,6 +433,21 @@ The factorization of `f` according to its Newton polygon, as a sequence of facto
 **Parameters**
 - `Residual := false`: When `true` then further factorizes according to the factorization of each residual polynomial into powers of irreducibles.
 
+<a id="SplittingField"></a><a id="SplittingField--RngUPolElt_FldPadExact"></a>
+> **SplittingField** (f :: *RngUPolElt_FldPadExact*)
+> 
+> -> *FldPadExact*
+> {:.ret}
+{:.intrinsic}
+
+A splitting field for `f`.
+
+Set the verbosity of `ExactpAdics_SplittingField` to 1 to see timings of intermediate steps and degrees of intermediate fields.
+
+
+**Parameters**
+- `Alg := ""`: A space-separated string of flags defining the algorithm. "Alg1" (default), "Alg2": Which algorithm to use; "Alg1" maintains a pool of factors of f, whereas "Alg2" factors f each iteration. "MaxDeg", "MinDeg" (default), "Oldest", "Newest": how to choose which factor to adjoin a root of. "Std", "NoStd" (default): wheter or not to put each extension into standard form (using `[StandardForm]({{site.baseurl}}/exact-p-adic-fields#StandardForm)` whose linear algebra can dominate any time saved). "Opt" (default),"NoOpt": whether or not to make an optimized representation of each extension (using `[OptimizedRepresentation]({{site.baseurl}}/exact-p-adic-fields#OptimizedRepresentation)`). "Hensel", "NoHensel" (default): whether or not to Hensel-lift each factor over each extension, thus making it depend only on f and the extension. "Unram", "NoUnram" (default): whether or not to immediately make an unramified extension when possible.
+
 <a id="ExactpAdics_Factorization"></a><a id="ExactpAdics_Factorization--RngUPolElt_FldPadExact"></a>
 > **ExactpAdics_Factorization** (f :: *RngUPolElt_FldPadExact*)
 > 

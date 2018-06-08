@@ -1422,12 +1422,6 @@ intrinsic IsTotallyWildlyRamified(E :: FldPadExact, F :: FldPadExact) -> BoolElt
   return IsTotallyRamified(E, F) and IsPowerOf(RamificationDegree(E, F), Prime(E));
 end intrinsic;
 
-///### Printing
-/// *Not implemented.*
-
-///### Standard form
-/// *Not implemented.*
-
 ///## Residue class field
 
 /// The residue class field `FF` of F, and the quotient map from `F` to `FF`.
@@ -1571,6 +1565,7 @@ intrinsic StandardForm(E :: FldPadExact, F :: FldPadExact) -> FldPadExact, HomFl
   return TopField(X2), emb;
 end intrinsic;
 
+///hide
 intrinsic StandardForm(X :: ExtFldPadExact) -> ExtFldPadExact, HomFldPadExact
   {Standard form X' of X, and the isomorphism X to X'.}
   if not assigned X`standard_form then

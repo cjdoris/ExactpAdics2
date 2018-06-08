@@ -22,8 +22,9 @@ Please direct any bugs, comments or queries to [the GitHub issue tracker](https:
 * [Exact p-adic fields]({{site.baseurl}}/exact-p-adic-fields)
 * [Univariate polynomials]({{site.baseurl}}/univariate-polynomials)
 * [Multivariate polynomials]({{site.baseurl}}/multivariate-polynomials)
-* [Valuations]({{site.baseurl}}/valuations)
+* [Linear algebra (vectors, matrices, etc.)]({{site.baseurl}}/linear-algebra)
 * [Aggregates (tuples, etc.)]({{site.baseurl}}/aggregates)
+* [Valuations]({{site.baseurl}}/valuations)
 * [Internals]({{site.baseurl}}/internals)
 * [Miscellany]({{site.baseurl}}/miscellany)
 

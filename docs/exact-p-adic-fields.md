@@ -23,9 +23,9 @@
   * [Basic information](#basic-information)
   * [Invariants](#invariants)
   * [Ramification predicates](#ramification-predicates)
-  * [Printing](#printing)
-  * [Standard form](#standard-form)
 * [Residue class field](#residue-class-field)
+* [Linear algebra](#linear-algebra)
+* [Standard form](#standard-form)
 * [Ramification polynomials and polygons](#ramification-polynomials-and-polygons)
 * [Hasse-Herbrand transition function](#hasse-herbrand-transition-function)
   * [Creation](#creation)
@@ -708,16 +708,6 @@ True if `E` is totally wildly ramified over `F` or its base field. That is, the 
 
 
 
-### Printing
-{:#printing}
-
-*Not implemented.*
-
-### Standard form
-{:#standard-form}
-
-*Not implemented.*
-
 ## Residue class field
 {:#residue-class-field}
 
@@ -743,6 +733,54 @@ Note that the quotient map has an inverse whose approximations always have absol
 The residue class of `x`.
 
 
+## Linear algebra
+{:#linear-algebra}
+
+<a id="VectorSpace"></a><a id="VectorSpace--FldPadExact--etc"></a><a id="VectorSpace--FldPadExact--FldPadExact"></a>
+> **VectorSpace** (E :: *FldPadExact*, F :: *FldPadExact*)
+> 
+> -> *ModTupFld_FldPadExact*, *Map*
+> {:.ret}
+{:.intrinsic}
+
+A vector space over `F` isomorphic to `E`, and the isomorphism.
+
+
+## Standard form
+{:#standard-form}
+
+<a id="IsInStandardForm"></a><a id="IsInStandardForm--FldPadExact--etc"></a><a id="IsInStandardForm--FldPadExact--FldPadExact"></a>
+> **IsInStandardForm** (E :: *FldPadExact*, F :: *FldPadExact*)
+> 
+> -> *BoolElt*, *FldPadExact*
+> {:.ret}
+{:.intrinsic}
+
+True if `E`/`F` is in standard form, i.e. it is a totally ramified extension of an unramified extension. If so, returns the unramified subfield.
+
+
+<a id="StandardForm"></a><a id="StandardForm--FldPadExact--etc"></a><a id="StandardForm--FldPadExact--FldPadExact"></a>
+> **StandardForm** (E :: *FldPadExact*, F :: *FldPadExact*)
+> 
+> -> *FldPadExact*, *HomFldPadExact*
+> {:.ret}
+{:.intrinsic}
+
+Standard form `E`' of `E`/`F` and the `F`-isomorphism `E` to `E`'.
+
+
+<a id="OptimizedRepresentation"></a><a id="OptimizedRepresentation--FldPadExact"></a>
+> **OptimizedRepresentation** (F :: *FldPadExact*)
+> 
+> -> *FldPadExact*, *HomFldPadExact*
+> {:.ret}
+{:.intrinsic}
+
+An optimized representation of `F`. For extensions, this will truncate the precision of the defining polynomial.
+
+**Parameters**
+- `Isomorphism := false`: When true, also returns an isomorphism between the old and new representations.
+
 ## Ramification polynomials and polygons
 {:#ramification-polynomials-and-polygons}
 
@@ -754,6 +792,20 @@ If $L/K$ is totally ramified, then the *ramification polygon of $L/K$* is the ra
 The Newton polygon is an invariant of an extension and describes the ramification breaks of the *Galois set* $\Gamma(L/K)$ of embeddings $L \hookrightarrow \bar{K}$. This generalizes ramification theory of Galois extensions, where the Galois set is equal to the Galois group.
 
 See also [the `pAdicExtensions` package](https://cjdoris.github.io/pAdicExtensions) which includes a more specialised, and more general, representation of ramification polygons.
+
+<a id="DiscriminantValuation"></a><a id="DiscriminantValuation--FldPadExact--etc"></a><a id="DiscriminantValuation--FldPadExact--FldPadExact"></a><a id="DiscriminantValuation--FldPadExact"></a>
+> **DiscriminantValuation** (E :: *FldPadExact*, F :: *FldPadExact*)
+> 
+> **DiscriminantValuation** (E :: *FldPadExact*)
+> 
+> -> *RngIntElt*
+> {:.ret}
+{:.intrinsic}
+
+The valuation of the discriminant of `E` over `F` (or its base field).
+
+
+
 
 <a id="RamificationResidualPolynomials"></a><a id="RamificationResidualPolynomials--RngUPolElt_FldPadExact"></a>
 > **RamificationResidualPolynomials** (f :: *RngUPolElt_FldPadExact*)
@@ -936,24 +988,34 @@ The ramification polygon of a totally ramified extension with the given transiti
 ### Creation
 {:#creation-2}
 
-<a id="TrivialHomomorphism"></a><a id="TrivialHomomorphism--FldPadExact--etc"></a><a id="TrivialHomomorphism--FldPadExact--FldPadExact"></a>
+<a id="TrivialHomomorphism"></a><a id="TrivialHomomorphism--FldPadExact--etc"></a><a id="TrivialHomomorphism--FldPadExact--FldPadExact--FldPadExact"></a>
+> **TrivialHomomorphism** (E :: *FldPadExact*, C :: *FldPadExact*, F :: *FldPadExact*)
+> 
+> -> *HomFldPadExact*
+> {:.ret}
+{:.intrinsic}
+
+The trivial `F`-homomorphism of `E` into `C`, which must be an extension of `E`.
+
+
+<a id="TrivialHomomorphism-2"></a><a id="TrivialHomomorphism--FldPadExact--etc-2"></a><a id="TrivialHomomorphism--FldPadExact--FldPadExact"></a>
 > **TrivialHomomorphism** (E :: *FldPadExact*, C :: *FldPadExact*)
 > 
 > -> *HomFldPadExact*
 > {:.ret}
 {:.intrinsic}
 
-The trivial embedding of `E` into `C`, where `C` is an extension of `E`.
+The trivial `E`-homomorphism of `E` into `C`, which must be an extension of `E`.
 
 
-<a id="TrivialIsomorphism"></a><a id="TrivialIsomorphism--FldPadExact"></a>
-> **TrivialIsomorphism** (F :: *FldPadExact*)
+<a id="TrivialIsomorphism"></a><a id="TrivialIsomorphism--FldPadExact--etc"></a><a id="TrivialIsomorphism--FldPadExact--FldPadExact"></a>
+> **TrivialIsomorphism** (E :: *FldPadExact*, F :: *FldPadExact*)
 > 
 > -> *HomFldPadExact*
 > {:.ret}
 {:.intrinsic}
 
-The trivial isomorphism of `F`.
+The trivial `F`-isomorphism of `E`.
 
 
 <a id="Homomorphism"></a><a id="Homomorphism--FldPadExact--etc"></a><a id="Homomorphism--FldPadExact--FldPadExactElt"></a>
