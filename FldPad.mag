@@ -136,6 +136,8 @@ declare attributes ExtFldPadExact
   , inertia_degree
   , ramification_degree
   , defining_polynomial
+  , standard_form
+  , vector_space_map
   ;
 
 ///## Creation of p-adic fields
@@ -1466,6 +1468,227 @@ end intrinsic;
 intrinsic ResidueClass(x :: FldPadExactElt) -> FldFinElt
   {The residue class of x.}
   return x @ m where _,m := ResidueClassField(Parent(x));
+end intrinsic;
+
+///## Linear algebra
+
+intrinsic VectorSpace(E :: FldPadExact, F :: FldPadExact) -> ModTupFld_FldPadExact, Map
+  {A vector space over F isomorphic to E, and the isomorphism.}
+  return VectorSpace(E/F);
+end intrinsic;
+
+///hide
+intrinsic VectorSpace(X :: ExtFldPadExact) -> ModTupFld_FldPadExact, Map
+  {A vector space isomorphic to X, and the isomorphism.}
+  if not assigned X`vector_space_map then
+    E := TopField(X);
+    F := BaseField(X);
+    V := VectorSpace(F, Degree(X));
+    depth := #Tower0(X);
+    function EtoV(x)
+      v := New(ModTupFldElt_FldPadExact);
+      v`parent := V;
+      v`dependencies := [* V, E!x *];
+      v`get_approximation := function (n, xds)
+        xxs := [xds[2]];
+        for i in [1..depth] do
+          xxs := [xc : xc in ELTSEQ(xx), xx in xxs];
+        end for;
+        return xds[1] ! xxs;
+      end function;
+      Init(v);
+      return v;
+    end function;
+    function VtoE(v)
+      x := New(FldPadExactElt);
+      x`parent := E;
+      x`dependencies := [* V!v *] cat [* fld : fld in Tower0(X) *];
+      x`get_approximation := function (n, xds)
+        xxs := Eltseq(xds[1]);
+        for i in [2..#xds] do
+          xfld := xds[i];
+          deg := Degree(xfld);
+          FUDGE := (e eq 1 select 0 else 2) where e := RamificationDegree(xds[i]);
+          xxs := [TRIM_PR(xfld ! xxs[i..i+deg-1], FUDGE) : i in [1..#xxs by deg]];
+        end for;
+        assert #xxs eq 1;
+        return xxs[1];
+      end function;
+      Init(x);
+      return x;
+    end function;
+    m := map<E -> V | x :-> EtoV(x), v :-> VtoE(v)>;
+    X`vector_space_map := m;
+  end if;
+  return Codomain(X`vector_space_map), X`vector_space_map;
+end intrinsic;
+
+
+///## Standard form
+
+intrinsic IsInStandardForm(E :: FldPadExact, F :: FldPadExact) -> BoolElt, FldPadExact
+  {True if E/F is in standard form, i.e. it is a totally ramified extension of an unramified extension. If so, returns the unramified subfield.}
+  X := E / F;
+  ok, Uidx := IsInStandardForm(X);
+  if ok then
+    return true, Tower(X)[Uidx];
+  else
+    return false, _;
+  end if;
+end intrinsic;
+
+///hide
+intrinsic IsInStandardForm(X :: ExtFldPadExact) -> BoolElt, RngIntElt
+  {True if X is in standard form, i.e. it is a totally ramified extension of an unramified extension. If so, returns the index in Tower(X) of the unramified subfield.}
+  t := Tower(X);
+  case #t:
+  when 1:
+    return true, 1;
+  when 2:
+    case t[2]`xtype:
+    when INERT:
+      return true, 2;
+    when EISEN:
+      return true, 1;
+    else
+      return false, _;
+    end case;
+  when 3:
+    if t[3]`xtype eq EISEN and t[2]`xtype eq INERT then
+      return true, 2;
+    else
+      return false, _;
+    end if;
+  else
+    assert #t gt 3;
+    return false, _;
+  end case;
+end intrinsic;
+
+intrinsic StandardForm(E :: FldPadExact, F :: FldPadExact) -> FldPadExact, HomFldPadExact
+  {Standard form E' of E/F and the F-isomorphism E to E'.}
+  X2, emb := StandardForm(E/F);
+  return TopField(X2), emb;
+end intrinsic;
+
+intrinsic StandardForm(X :: ExtFldPadExact) -> ExtFldPadExact, HomFldPadExact
+  {Standard form X' of X, and the isomorphism X to X'.}
+  if not assigned X`standard_form then
+    ok, Uidx := IsInStandardForm(X);
+    if ok then
+      Y := X;
+      emb := TrivialIsomorphism(X);
+    else
+      ramdeg := RamificationDegree(X);
+      resdeg := InertiaDegree(X);
+      deg := Degree(X);
+      assert deg eq ramdeg * resdeg;
+      F := BaseField(X);
+      E := TopField(X);
+      // first make the unramified extension of the right size
+      U := resdeg eq 1 select F else UnramifiedExtension(F, resdeg);
+      if ramdeg eq 1 then
+        E2 := U;
+        ok, emb := HasIsomorphism(E, E2, F);
+        assert ok;
+      else
+        // embed the generator of U into E
+        if U eq F then
+          u := U ! 1;
+          uE := E ! 1;
+        else
+          u := U.1;
+          fU := DefiningPolynomial(U);
+          uE := ExactpAdics_Roots(ChangeRing(fU, E) : Limit:=1)[1][1];
+        end if;
+        // expressing pi^ramdeg and u^i*pi^j for i<resdeg, j<ramdeg as vectors V and M_{i,j} over K of dimension deg, we can solve the linear system V = sum_{i,j} S_{i,j} M_{i,j}, from which we can deduce the minimal (Eisenstein) polynomial for pi over U
+        piE := UniformizingElement(E);
+        _, vec := VectorSpace(X);
+        V := vec(piE^ramdeg);
+        uEpowers := [uE^i : i in [0..resdeg-1]];
+        piEpowers := [piE^j : j in [0..ramdeg-1]];
+        M := Matrix([vec(uEpower * piEpower) : uEpower in uEpowers, piEpower in piEpowers]);
+        Minv := M^-1;
+        S := V * Minv;
+        f := New(RngUPolElt_FldPadExact);
+        f`parent := PolynomialRing(U);
+        f`dependencies := [* f`parent, U, S, u *];
+        f`get_approximation := function (n, xds)
+          xPRU, xU, xS, xu := Explode(xds);
+          return xPRU ! [xU| j eq ramdeg select 1 else -&+[xS[1+i+resdeg*j]*xu^i : i in [0..resdeg-1]] : j in [0..ramdeg]];
+        end function;
+        Init(f);
+        E2 := TotallyRamifiedExtension(U, f);
+        pi := E2.1;
+        u2 := E2 ! u;
+        pipowers := [pi^j : j in [0..ramdeg-1]];
+        u2powers := [u2^i : i in [0..resdeg-1]];
+        // with some similar linear algebra, we can embed the generators of E/F into E2
+        V := Matrix([vec(fld.1) : fld in Tower0(X)]);
+        S := V * Minv;
+        G := VectorSpace(E2, deg) ! [E2| u2power * pipower : u2power in u2powers, pipower in pipowers];
+        gens := G * Transpose(S);
+        emb := Homomorphism(E, Eltseq(gens), F);
+        // the inverse is easy to define
+        emb`inverse := Homomorphism(E2, U eq F select [E| piE] else [E| uE, piE], F);
+        emb`inverse`inverse := emb;
+      end if;
+      Y := E2 / F;
+    end if;
+    Y`standard_form := [* Y, emb *];
+    X`standard_form := [* Y, emb *];
+  end if;
+  return Explode(X`standard_form);
+end intrinsic;
+
+///param Isomorphism:=false When true, also returns an isomorphism between the old and new representations.
+intrinsic OptimizedRepresentation(F :: FldPadExact : Isomorphism:=false) -> FldPadExact, HomFldPadExact
+  {An optimized representation of F. For extensions, this will truncate the precision of the defining polynomial.}
+  case F`xtype:
+  when PRIME:
+    if Isomorphism then
+      return F, TrivialIsomorphism(F, F);
+    else
+      return F, _;      
+    end if;
+  when INERT:
+    F2 := UnramifiedExtension(BaseField(F), Degree(F));
+    if Isomorphism then
+      return F2, Homomorphisms(F, F2, BaseField(F) : Limit:=1)[1];
+    else
+      return F2, _;      
+    end if;
+  when EISEN:
+    // To do: Using the full ramification polygon, we can often reduce the absolute precision further.
+    // To do: We could also just try reducing the absolute precision and testing if the result gives an isomorphic field.
+    vD := DiscriminantValuation(F);
+    d := Degree(F);
+    apr := Floor(2 * (vD + 1) / d);
+    assert apr ge 2;
+    f := DefiningPolynomial(F);
+    for n in [1..99999] do
+      xf := EpochApproximation(f, n);
+      if Degree(xf) eq d and forall{c : c in Coefficients(xf) | AbsolutePrecision(c) ge apr} then
+        xf2 := Polynomial([CAP_APR(c, apr) : c in Coefficients(xf)]);
+        f2 := WeakApproximation(PolynomialRing(BaseField(F)) ! xf2);
+        F2 := TotallyRamifiedExtension(BaseField(F), f2);
+        if Isomorphism then
+          ok, r := IsHenselLiftable(DefiningPolynomial(F2), F.1);
+          assert ok;
+          ok, r2 := IsHenselLiftable(DefiningPolynomial(F), F2.1);
+          assert ok;
+          isom := Homomorphism(F, r2);
+          isom`inverse := Homomorphism(F2, r);
+          isom`inverse`inverse := isom;
+          return F2, isom;
+        else
+          return F2, _;          
+        end if;
+      end if;
+    end for;
+  else
+    assert false;
+  end case;
 end intrinsic;
 
 ///## Internals
