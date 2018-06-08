@@ -1149,3 +1149,151 @@ intrinsic NewtonPolygonFactorization(f :: RngUPolElt_FldPadExact : Residual:=fal
   end if;
   return f`npfactorization[Residual];
 end intrinsic;
+
+declare verbose ExactpAdics_SplittingField, 1;
+
+/// A splitting field for f.
+/// 
+/// Set the verbosity of `ExactpAdics_SplittingField` to 1 to see timings of intermediate steps and degrees of intermediate fields.
+/// 
+///param Alg:="" A space-separated string of flags defining the algorithm. "Alg1" (default), "Alg2": Which algorithm to use; "Alg1" maintains a pool of factors of f, whereas "Alg2" factors f each iteration. "MaxDeg", "MinDeg" (default), "Oldest", "Newest": how to choose which factor to adjoin a root of. "Std", "NoStd" (default): wheter or not to put each extension into standard form (using `[StandardForm]({{site.baseurl}}/exact-p-adic-fields#StandardForm)` whose linear algebra can dominate any time saved). "Opt" (default),"NoOpt": whether or not to make an optimized representation of each extension (using `[OptimizedRepresentation]({{site.baseurl}}/exact-p-adic-fields#OptimizedRepresentation)`). "Hensel", "NoHensel" (default): whether or not to Hensel-lift each factor over each extension, thus making it depend only on f and the extension. "Unram", "NoUnram" (default): whether or not to immediately make an unramified extension when possible.
+intrinsic SplittingField(f :: RngUPolElt_FldPadExact : Alg:="") -> FldPadExact
+  {A splitting field for f.}
+  // TODO: also return the roots of f
+  require Degree(f) ge 1: "polynomial must be non-constant";
+  flags := SequenceToSet(Split(Alg," "));
+  choose := function (choices, dflt)
+    for choice in choices do
+      if choice in flags then
+        return choice;
+      end if;
+    end for;
+    return dflt;
+  end function;
+  flag := function (name, dflt)
+    if dflt then
+      return name in flags or ("No" cat name) notin flags;
+    else
+      return name in flags and ("No" cat name) notin flags;
+    end if;
+  end function;
+  alg := choose(["Alg1","Alg2"], "Alg1");
+  F := BaseRing(f);
+  case alg:
+  when "Alg1":
+    choice := choose(["MaxDeg","MinDeg","Oldest","Newest"], "MinDeg");
+    do_std := flag("Std", false);
+    do_opt := flag("Opt", true);
+    do_hensel := flag("Hensel", false);
+    N := F;
+    facs := Degree(f) eq 1 select [] else [f];
+    while #facs ne 0 do
+      // pick a factor
+      case choice:
+      when "MaxDeg":
+        _,i := Max([Degree(fac) : fac in facs]);
+      when "MinDeg":
+        _,i := Min([Degree(fac) : fac in facs]);
+      when "Oldest":
+        i := 1;
+      when "Newest":
+        i := #facs;
+      else
+        assert false;
+      end case;
+      fac := facs[i];
+      Remove(~facs, i);
+      // factorize it, keeping non-linear factors
+      vtime ExactpAdics_SplittingField:
+      facs2 := [fac2[1] : fac2 in Factorization(fac) | Degree(fac2[1]) gt 1];
+      if #facs2 ne 0 then
+        // pick a factor
+        case choice:
+        when "MaxDeg":
+          _,i := Max([Degree(fac) : fac in facs2]);
+        when "MinDeg":
+          _,i := Min([Degree(fac) : fac in facs2]);
+        when "Oldest":
+          i := 1;
+        when "Newest":
+          i := #facs2;
+        else
+          assert false;
+        end case;
+        fac2 := facs2[i];
+        facs cat:= facs2;
+        // extend N
+        vtime ExactpAdics_SplittingField:
+        N := certs[1]`Extension where _,_,certs := Factorization(fac2 : Extensions);
+        ChangeUniverse(~facs, PolynomialRing(N));
+        // standardize N
+        if do_std then
+          vtime ExactpAdics_SplittingField:
+          N, emb := StandardForm(N, F);
+          facs := [PolynomialRing(N)| [c @ emb : c in Coefficients(fac)] : fac in facs];
+          if do_hensel then
+            vtime ExactpAdics_SplittingField:
+            facs := [newfac where ok,newfac:=IsHenselLiftable(f, fac) : fac in facs];
+          end if;
+        end if;
+        // optimize N
+        if do_opt then
+          vtime ExactpAdics_SplittingField:
+          N, emb := OptimizedRepresentation(N : Isomorphism);
+          facs := [PolynomialRing(N)| [c @ emb : c in Coefficients(fac)] : fac in facs];
+          if do_hensel then
+            vtime ExactpAdics_SplittingField:
+            facs := [newfac where ok,newfac:=IsHenselLiftable(f, fac) : fac in facs];
+          end if;
+        end if;
+        vprint ExactpAdics_SplittingField: Degree(N, F);
+      end if;
+    end while;
+  when "Alg2":
+    choice := choose(["MaxDeg","MinDeg"], "MinDeg");
+    do_unram := flag("Unram", false);
+    do_std := flag("Std", false);
+    do_opt := flag("Opt", true);
+    N := F;
+    while true do
+      vtime ExactpAdics_SplittingField:
+      facs := [<facs[i][1], certs[i]> : i in [1..#facs] | Degree(facs[i][1]) gt 1]
+        where facs,_,certs:=Factorization(ChangeRing(f, N) : Certificates);
+      if #facs eq 0 then
+        break;
+      end if;
+      // extend N
+      resdeg := do_unram select LCM([fac[2]`F : fac in facs]) else 0;
+      if resdeg gt 1 then
+        vtime ExactpAdics_SplittingField:
+        N := UnramifiedExtension(N, resdeg);
+      else
+        case choice:
+        when "MaxDeg":
+          _,i := Max([Degree(fac[1]) : fac in facs]);
+        when "MinDeg":
+          _,i := Min([Degree(fac[1]) : fac in facs]);
+        else
+          assert false;
+        end case;
+        fac := facs[i];
+        vtime ExactpAdics_SplittingField:
+        N := certs[1]`Extension where _,_,certs := Factorization(fac[1] : Extensions);
+      end if;
+      // standardize N
+      if do_std then
+        vtime ExactpAdics_SplittingField:
+        N := StandardForm(N, F);
+      end if;
+      // optimize N
+      if do_opt then
+        vtime ExactpAdics_SplittingField:
+        N := OptimizedRepresentation(N);
+      end if;
+      vprint ExactpAdics_SplittingField: Degree(N, F);
+    end while;
+  else
+    assert false;
+  end case;
+  return N;
+end intrinsic;
