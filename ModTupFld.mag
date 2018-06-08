@@ -288,7 +288,7 @@ intrinsic CanChangeRing(v :: ModTupFldElt_FldPadExact, F :: FldPadExact) -> Bool
   ok, E := ExistsCoveringStructure(BaseField(v), F);
   if ok then
     if IsGeneric(Parent(v)) then
-      return VectorSpace(E, Ncols(v)) ! v;
+      return true, VectorSpace(E, Ncols(v)) ! v;
     else
       error "not implemented: changing base field of vector space";
     end if;

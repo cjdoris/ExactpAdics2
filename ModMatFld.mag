@@ -415,7 +415,7 @@ intrinsic CanChangeRing(m :: ModMatFldElt_FldPadExact, F :: FldPadExact) -> Bool
   end if;
   ok, E := ExistsCoveringStructure(BaseField(m), F);
   if ok then
-    return KMatrixSpace(E, Nrows(m), Ncols(m)) ! m;
+    return true, KMatrixSpace(E, Nrows(m), Ncols(m)) ! m;
   else
     return false, _;
   end if;
