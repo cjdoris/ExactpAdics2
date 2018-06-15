@@ -569,6 +569,8 @@ intrinsic IsHenselLiftable(fs :: [RngMPolElt_FldPadExact], xs :: [FldPadExactElt
   end function;
   rs`get_approximation := function (_n, xfs)
     ok, Jinv, xxs, xfxs, xdfs := start(xfs);
+    xK := Universe(xxs);
+    prxK := Precision(xK);
     assert ok;
     while true do
       xxs_diff := xfxs * Transpose(Jinv);
@@ -579,7 +581,7 @@ intrinsic IsHenselLiftable(fs :: [RngMPolElt_FldPadExact], xs :: [FldPadExactElt
         locrs`internal_data := xxs;
         return <CAP_APR(xxs[i], Ceiling(slopes[i] + pr)) : i in [1..n]>;
       else
-        xxs := xxs_new;
+        xxs := [xK| IsWeaklyZero(xx) select 0 else ChangePrecision(xx, prxK) : xx in xxs_new];
         xfxs := Vector([Evaluate(xfs[i], xxs) : i in [1..n]]);
         J := Matrix([[Evaluate(xdfs[i][j], xxs) : j in [1..n]] : i in [1..n]]);
         ok, Jinv := IsInvertible(J);
