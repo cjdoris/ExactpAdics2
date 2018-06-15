@@ -18,7 +18,7 @@
 ///# Exact p-adic fields
 ///toc
 
-import "Utils.mag": Z, Q, OO, TRIM_PR, CAP_PR, CAP_APR, ISEXTOF, ELTSEQ, isDefinitelyUnique1;
+import "Utils.mag": Z, Q, OO, TRIM_PR, CAP_PR, CAP_APR, ISEXTOF, ELTSEQ, isDefinitelyUnique1, CHANGE_APR;
 import "Promotion.mag": do_binop;
 
 // extension types
@@ -681,7 +681,37 @@ intrinsic IsCoercible(F :: FldPadExact, X :: []) -> BoolElt, .
 end intrinsic;
 
 ///### Random
-/// *Not implemented.*
+
+intrinsic RandomInteger(F :: FldPadExact) -> FldPadExactElt
+  {A random integer of F.}
+  x := New(FldPadExactElt);
+  x`parent := F;
+  x`dependencies := [* F *];
+  x`get_approximation := function (n, xds)
+    xF := xds[1];
+    if #x`approximations eq 0 then
+      return xF ! Random(Integers(xF));
+    else
+      xx := xF ! x`approximations[#x`approximations];
+      prx := AbsolutePrecision(xx);
+      assert prx ge 0;
+      pr := Precision(xF);
+      prd := pr - prx;
+      assert prd ge 0;
+      return CHANGE_APR(xx, pr) + ShiftValuation(xF!Random(Integers(ChangePrecision(xF, prd))), prx);
+    end if;
+  end function;
+  Init(x);
+  return x;
+end intrinsic;
+
+intrinsic RandomUnit(F :: FldPadExact) -> FldPadExactElt
+  {A random unit of F.}
+  repeat
+    x := RandomInteger(F);
+  until ValuationEq(x, 0);
+  return x;
+end intrinsic;
 
 ///## Basic operations
 
