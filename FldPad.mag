@@ -1716,6 +1716,56 @@ intrinsic OptimizedRepresentation(F :: FldPadExact : Isomorphism:=false) -> FldP
   end case;
 end intrinsic;
 
+///## Minimal polynomials
+
+///param Check:=true Checks that the returned polynomial evaluated at x is weakly zero each time an approximation is generated.
+intrinsic MinimalPolynomialAssumingDegree(x :: FldPadExactElt, F :: FldPadExact, d :: RngIntElt : Check:=true) -> RngUPolElt_FldPadExact
+  {Minimal polynomial of x over F, assuming it is degree d. If d is incorrect but divides the true degree, then this will return an incorrect polynomial; otherwise it will likely raise an error.}
+  E := Parent(x);
+  ok, X := IsExtensionOf(E, F);
+  require ok: "x must lie in an extension of F";
+  dE := Degree(X);
+  require d ge 1: "d must be positive";
+  require IsDivisibleBy(dE, d): "d must divide the degree of the parent of x over F";
+  R := PolynomialRing(F);
+  if E eq F then
+    assert d eq 1;
+    return R![F| -x, 1];
+  else
+    // we need to solve sol*mat=vec, then sol gives the coefficients of the minimal polynomial
+    V, EtoV := VectorSpace(X);
+    vec := EtoV(x^d);
+    mat := Matrix([EtoV(x^i) : i in [0..d-1]]);
+    // we cannot solve non-square systems directly, so we project onto a d-dimensional subspace
+    if d eq dE then
+      vec2 := vec;
+      mat2 := mat;
+    else
+      B := Matrix([[RandomInteger(F) : j in [1..d]] : i in [1..dE]]);
+      vec2 := vec * B;
+      mat2 := mat * B;
+    end if;
+    // now solve the d x d system
+    sol := vec2 * mat2^-1;
+    // construct the minimal polynomial
+    m := New(RngUPolElt_FldPadExact);
+    m`parent := R;
+    if Check then
+      m`dependencies := [* R, sol, x *];
+      m`get_approximation := function (n, xds)
+        xm := xds[1] ! [i eq d select 1 else -xds[2][i+1] : i in [0..d]];
+        error if not IsWeaklyZero(Evaluate(ChangeRing(xm, Parent(xds[3])), xds[3])), "incorrect degree";
+        return xm;
+      end function;
+    else
+      m`dependencies := [* R, sol *];
+      m`get_approximation := func<n, xds | xds[1] ! [i eq d select 1 else -xds[2][i] : i in [0..d]]>;
+    end if;
+    Init(m);
+    return m;
+  end if;
+end intrinsic;
+
 ///## Internals
 ///priority -1
 ///### Approximations
