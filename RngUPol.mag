@@ -227,6 +227,11 @@ intrinsic Polynomial(cs :: [FldPadExactElt]) -> RngUPolElt_FldPadExact
   return PolynomialRing(Universe(cs)) ! cs;
 end intrinsic;
 
+intrinsic Polynomial(cs :: ModTupFldElt_FldPadExact) -> RngUPolElt_FldPadExact
+  {"}
+  return PolynomialRing(BaseField(cs)) ! cs;
+end intrinsic;
+
 intrinsic Polynomial(F :: FldPadExact, cs :: []) -> RngUPolElt_FldPadExact
   {The polynomial over F with coefficients cs.}
   ok, cs2 := CanChangeUniverse(cs, F);
@@ -239,7 +244,7 @@ end intrinsic;
 /// We can coerce the following to a polynomial in `R`:
 /// - A polynomial in `R`
 /// - A polynomial whose coefficients are coercible to the base ring of `R`
-/// - A sequence of anything coercible to the base ring of `R`
+/// - A sequence or vector of anything coercible to the base ring of `R`
 /// - Anything coercible to the base ring of `R`
 
 intrinsic IsCoercible(R :: RngUPol_FldPadExact, X) -> BoolElt, .
@@ -287,6 +292,32 @@ intrinsic IsCoercible(R :: RngUPol_FldPadExact, X :: []) -> BoolElt, .
   f`dependencies := [* R *] cat [* c : c in cs *];
   f`get_approximation := func<n, xds | xds[1] ! [c : c in xds[2..#xds]]>;
   f`coefficient := cs; // this seems like a good optimization, but one would probably expect that the coefficients depend on f, and this breaks that expectation; e.g. calling IsEisenstein(f) will not increase the precision of f, so it can remain weakly non-Eisenstein
+  Init(f);
+  return true, f;
+end intrinsic;
+
+///hide
+intrinsic IsCoercible(R :: RngUPol_FldPadExact, X :: ModTupFldElt) -> BoolElt, .
+  {"}
+  return IsCoercible(R, Eltseq(X));
+end intrinsic;
+
+///hide
+intrinsic IsCoercible(R :: RngUPol_FldPadExact, X :: ModTupFldElt_FldPadExact) -> BoolElt, .
+  {"}
+  // try to change X to a vector over the base field of R
+  if BaseRing(R) eq BaseField(X) then
+    X2 := X;
+  else
+    ok, X2 := IsCoercible(VectorSpace(BaseRing(R), Degree(X)), X);
+    if not ok then
+      return IsCoercible(R, Eltseq(X));
+    end if;
+  end if;
+  f := New(RngUPolElt_FldPadExact);
+  f`parent := R;
+  f`dependencies := [* R, X2 *];
+  f`get_approximation := func<n, xds | xds[1] ! Eltseq(xds[2])>;
   Init(f);
   return true, f;
 end intrinsic;
