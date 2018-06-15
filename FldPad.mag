@@ -671,7 +671,7 @@ intrinsic IsCoercible(F :: FldPadExact, X :: []) -> BoolElt, .
     return false, "wrong length";
   end if;
   e := RamificationDegree(F);
-  FUDGE := e eq 1 select 0 else 2;
+  FUDGE := e eq 1 select 0 else e;
   x := New(FldPadExactElt);
   x`parent := F;
   x`dependencies := [* F *] cat [* c : c in cs *];
