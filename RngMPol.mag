@@ -40,6 +40,7 @@ declare attributes RngMPolElt_FldPadExact
   , weak_coefficients
   , is_monomial
   , exponents
+  , negation
   ;
 
 ///## Creation of rings
@@ -318,6 +319,236 @@ intrinsic Exponents(m :: RngMPolElt_FldPadExact) -> []
   ok, e := IsDefinitelyMonomial(m);
   require ok: "might not be a monomial";
   return e;
+end intrinsic;
+
+//### Arithmetic
+
+/// Negate, add, subtract, multiply, divide by scalar, sum, product.
+intrinsic '-'(f :: RngMPolElt_FldPadExact) -> RngMPolElt_FldPadExact
+  {Negate.}
+  if not assigned f`negation then
+    g := New(RngMPolElt_FldPadExact);
+    g`parent := Parent(f);
+    g`dependencies := [* f *];
+    g`get_approximation := func<n, xds | -xds[1]>;
+    Init(g);
+    g`negation := f;
+    f`negation := g;
+  end if;
+  return f`negation;
+end intrinsic;
+
+///ditto
+intrinsic '+'(f :: RngMPolElt_FldPadExact, g :: RngMPolElt_FldPadExact) -> RngMPolElt_FldPadExact
+  {Add.}
+  ok, R := ExistsCoveringStructure(Parent(f), Parent(g));
+  require ok: "f and g must be coercible to the same ring";
+  return &+[R| f, g];
+end intrinsic;
+
+///hide
+intrinsic '+'(f :: RngMPolElt_FldPadExact, g) -> .
+  {"}
+  return do_binop('+', f, g);
+end intrinsic;
+
+///hide
+intrinsic '+'(f, g :: RngMPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('+', f, g);
+end intrinsic;
+
+///ditto
+intrinsic '-'(f :: RngMPolElt_FldPadExact, g :: RngMPolElt_FldPadExact) -> RngMPolElt_FldPadExact
+  {Subtract.}
+  ok, R := ExistsCoveringStructure(Parent(f), Parent(g));
+  require ok: "f and g must be coercible to the same ring";
+  h := New(RngMPolElt_FldPadExact);
+  h`parent := R;
+  h`dependencies := [* R!f, R!g *];
+  h`get_approximation := func<n, xds | xds[1] - xds[2]>;
+  Init(h);
+  return h;
+end intrinsic;
+
+///hide
+intrinsic '-'(f :: RngMPolElt_FldPadExact, g) -> .
+  {"}
+  return do_binop('-', f, g);
+end intrinsic;
+
+///hide
+intrinsic '-'(f, g :: RngMPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('-', f, g);
+end intrinsic;
+
+///ditto
+intrinsic '*'(f :: RngMPolElt_FldPadExact, g :: RngMPolElt_FldPadExact) -> RngMPolElt_FldPadExact
+  {Multiply.}
+  ok, R := ExistsCoveringStructure(Parent(f), Parent(g));
+  require ok: "f and g must be coercible to the same ring";
+  return &*[R| f, g];
+end intrinsic;
+
+///hide
+intrinsic '*'(f :: RngMPolElt_FldPadExact, g) -> .
+  {"}
+  return do_binop('*', f, g);
+end intrinsic;
+
+///hide
+intrinsic '*'(f, g :: RngMPolElt_FldPadExact) -> .
+  {"}
+  return do_binop('*', f, g);
+end intrinsic;
+
+///ditto
+///param Safe:=false When true, this may be used as an intermediate variable in [`WithDependencies`]({{site.baseurl}}/internals#WithDependencies) with the `Fast` option.
+intrinsic '/'(f :: RngMPolElt_FldPadExact, x :: FldPadExactElt : Safe:=false) -> RngMPolElt_FldPadExact
+  {Divide by scalar.}
+  ok, F := ExistsCoveringStructure(BaseRing(f), Parent(x));
+  require ok: "not coercible to a common field";
+  R := PolynomialRing(F, Rank(Parent(f)));
+  f2 := R ! f;
+  x2 := F ! x;
+  g := New(RngMPolElt_FldPadExact);
+  if Safe then
+    ok, n := IsDefinitelyNonzero(x);
+    require ok: "x is weakly zero";
+    g`min_epoch := n;
+  else
+    EnsureAllApproximationsNonzero(x2);
+  end if;
+  g`parent := R;
+  g`dependencies := [* f2, x2 *];
+  g`get_approximation := func<n, xds | xds[1] / xds[2]>;
+  Init(g);
+  return g;  
+end intrinsic;
+
+///hide
+intrinsic '/'(f :: RngMPolElt_FldPadExact, x) -> .
+  {"}
+  ok, F := ExistsCoveringStructure(BaseRing(f), Parent(x));
+  require ok: "not coercible to a common ring";
+  return (PolynomialRing(F, Rank(Parent(f))) ! f) / (F ! x);
+end intrinsic;
+
+///hide
+intrinsic '/'(f :: RngMPolElt, x :: FldPadExactElt) -> .
+  {"}
+  ok, F := ExistsCoveringStructure(BaseRing(f), Parent(x));
+  require ok: "not coercible to a common ring";
+  return (PolynomialRing(F, Rank(Parent(f))) ! x) / (F ! x);
+end intrinsic;
+
+///ditto
+intrinsic '&+'(fs :: [RngMPolElt_FldPadExact]) -> RngMPolElt_FldPadExact
+  {Sum.}
+  R := Universe(fs);
+  case #fs:
+  when 0:
+    return Zero(R);
+  when 1:
+    return fs[1];
+  else
+    h := New(RngMPolElt_FldPadExact);
+    h`parent := R;
+    h`dependencies := [* f : f in fs *];
+    h`get_approximation := func<n,xfs|&+[xf : xf in xfs]>;
+    Init(h);
+    return h;
+  end case;
+end intrinsic;
+
+///ditto
+intrinsic '&*'(fs :: [RngMPolElt_FldPadExact]) -> RngMPolElt_FldPadExact
+  {Product.}
+  R := Universe(fs);
+  case #fs:
+  when 0:
+    return One(R);
+  when 1:
+    return fs[1];
+  else
+    h := New(RngMPolElt_FldPadExact);
+    h`parent := R;
+    h`dependencies := [* f : f in fs *];
+    h`get_approximation := func<n,xfs | &*[xf : xf in xfs]>;
+    Init(h);
+    return h;
+  end case;
+end intrinsic;
+
+///### Derivative
+
+/// The mth or first derivative of f with respect to variable v.
+intrinsic Derivative(f :: RngMPolElt_FldPadExact, m :: RngIntElt, v :: RngIntElt) -> RngMPolElt_FldPadExact
+  {The mth derivative of f with respect to v.}
+  require m ge 0: "m must be at least 0";
+  require 1 le v and v le Rank(Parent(f)): "v must be in range 1..rank";
+  if m eq 0 then
+    return f;
+  end if;
+  g := New(RngMPolElt_FldPadExact);
+  g`parent := f`parent;
+  g`dependencies := [* f *];
+  g`get_approximation := func<n, xds | Derivative(xds[1], m, v)>;
+  Init(g);
+  return g;
+end intrinsic;
+
+///ditto
+intrinsic Derivative(f :: RngMPolElt_FldPadExact, m :: RngIntElt, v :: RngMPolElt_FldPadExact) -> RngMPolElt_FldPadExact
+  {"}
+  ok, e := IsDefinitelyMonomial(v);
+  require ok and &+e eq 1: "v must be a variable";
+  return Derivative(f, m, Index(e, 1));
+end intrinsic;
+
+///ditto
+intrinsic Derivative(f :: RngMPolElt_FldPadExact, v :: RngIntElt) -> RngMPolElt_FldPadExact
+  {The derivative of f with respect to v.}
+  return Derivative(f, 1, v);
+end intrinsic;
+
+///ditto
+intrinsic Derivative(f :: RngMPolElt_FldPadExact, v :: RngMPolElt_FldPadExact) -> RngMPolElt_FldPadExact
+  {"}
+  return Derivative(f, 1, v);
+end intrinsic;
+
+///### Evaluate
+
+intrinsic Evaluate(f :: RngMPolElt_FldPadExact, xs :: [FldPadExactElt]) -> FldPadExactElt
+  {Evaluates `f(xs)`.}
+  ok, F := ExistsCoveringStructure(BaseRing(f), Universe(xs));
+  require ok: "f and xs must be coercible to a common ring";
+  R := PolynomialRing(F, Rank(Parent(f)));
+  require #xs eq Rank(R): "length of xs must equal rank of f";
+  y := New(FldPadExactElt);
+  y`parent := F;
+  y`dependencies := [* R!f *] cat [* F!x : x in xs *];
+  y`get_approximation := func<n, xds | Evaluate(xds[1], [xx : xx in xds[2..#xds]])>;
+  Init(y);
+  return y;
+end intrinsic;
+
+///hide
+intrinsic Evaluate(f :: RngMPolElt_FldPadExact, xs :: []) -> .
+  {"}
+  ok, F := ExistsCoveringStructure(BaseRing(f), Universe(xs));
+  require ok: "f and xs must be coercible to a common ring";
+  return Evaluate(PolynomialRing(F, Rank(Parent(f))) ! f, ChangeUniverse(xs, F));
+end intrinsic;
+
+///hide
+intrinsic Evaluate(f :: RngMPolElt, xs :: [FldPadExactElt]) -> .
+  {"}
+  ok, F := ExistsCoveringStructure(BaseRing(f), Universe(xs));
+  require ok: "f and xs must be coercible to a common ring";
+  return Evaluate(PolynomialRing(F, Rank(Parent(f))) ! f, ChangeUniverse(xs, F));  
 end intrinsic;
 
 ///## Internals
