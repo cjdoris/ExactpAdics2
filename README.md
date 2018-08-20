@@ -25,7 +25,7 @@ It differs from [the first implementation (`ExactpAdics`)](https://github.com/cj
 + Adds representations for vector spaces, vectors and matrices over p-adic fields.
 + Adds `DiscriminantValuation`, `VectorSpace`, `StandardForm` and `OptimizedRepresentation` for field extensions.
 + Adds `SplittingField`.
-! Fixes bug in `IsCoercible`
+! Fixes bugs in `IsCoercible`.
 ```
 
 ### v0.2.0
