@@ -601,6 +601,12 @@ intrinsic IsCoercible(F :: FldPadExact, X) -> BoolElt, .
       return true, Y @ F`completion_map;
     end if;
   end if;
+  if not IsPrimeField(F) then
+    ok, Y := IsCoercible(BaseField(F), X);
+    if ok then
+      return true, F ! Y;
+    end if;
+  end if;
   return false, "wrong type";
 end intrinsic;
 
