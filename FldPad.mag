@@ -1791,7 +1791,7 @@ intrinsic MinimalPolynomialAssumingDegree(x :: FldPadExactElt, F :: FldPadExact,
       end function;
     else
       m`dependencies := [* R, sol *];
-      m`get_approximation := func<n, xds | xds[1] ! [i eq d select 1 else -xds[2][i] : i in [0..d]]>;
+      m`get_approximation := func<n, xds | xds[1] ! [i eq d select 1 else -xds[2][i+1] : i in [0..d]]>;
     end if;
     Init(m);
     return m;
