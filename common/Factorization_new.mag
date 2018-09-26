@@ -829,9 +829,16 @@ procedure factorize(~st : JustRoots:=false, DegreeMle:=0, DegreeGe:=1, Limit:=In
       mval1 := mvals[x1+1];
       slope := (y1 - y0) / (x1 - x0);
       // have we gone over the prescribed width?
-      if x0 ge br`width then
+      if x1 gt br`width then
         vprint ExactpAdics_Factorization: Cputime(), "overshot";
-        assert mval_is_exact(mval1) or x0 eq br`width;
+        assert x0 le br`width;
+        if mval_is_exact(mval0) and mval_is_exact(mval1) then
+          assert x0 eq br`width;
+        end if;
+        // if the face intersects [0,width] we need to retry
+        if x0 lt br`width then
+          retry := true;
+        end if;
         break i;
       end if;
       // if the face is on [0,1], we have a liftable irreducible factor
@@ -847,7 +854,7 @@ procedure factorize(~st : JustRoots:=false, DegreeMle:=0, DegreeGe:=1, Limit:=In
         continue i;
       end if;
       // if we can't prove this is a face, we need to retry
-      if not ((mval_is_exact(mval0) or (x0 eq 0 and x1 eq 1)) and mval_is_exact(mval1)) then
+      if not (mval_is_exact(mval0) and mval_is_exact(mval1)) then
         vprint ExactpAdics_Factorization: Cputime(), "weak face";
         assert slope notin slopes_done;
         retry := true;
