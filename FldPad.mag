@@ -138,6 +138,7 @@ declare attributes ExtFldPadExact
   , defining_polynomial
   , standard_form
   , vector_space_map
+  , generator
   ;
 
 ///## Creation of p-adic fields
@@ -470,6 +471,37 @@ intrinsic Generator(F :: FldPadExact) -> FldPadExactElt
   return F`generator;
 end intrinsic;
 
+/// A generator for `E/F`.
+/// 
+/// If `E/F` is trivial, this is 0. If unramified, this is a residue generator. If totally ramified, this is a uniformizing element. Otherwise it is the sum of the two.
+intrinsic Generator(E :: FldPadExact, F :: FldPadExact) -> FldPadExactElt
+  {A generator for E/F.}
+  return Generator(E/F);
+end intrinsic;
+
+///hide
+intrinsic Generator(X :: ExtFldPadExact) -> FldPadExactElt
+  {A generator for X.}
+  if not assigned X`generator then
+    case #Tower(X):
+    when 1:
+      g := Zero(TopField(X));
+    when 2:
+      g := Generator(TopField(X));
+    else
+      if IsUnramified(X) then
+        g := ResidueGenerator(TopField(X));
+      elif IsTotallyRamified(X) then
+        g := UniformizingElement(TopField(X));
+      else
+        g := ResidueGenerator(TopField(X)) + UniformizingElement(TopField(X));
+      end if;
+    end case;
+    X`generator := g;
+  end if;
+  return X`generator;
+end intrinsic;
+
 intrinsic UniformizingElement(F :: FldPadExact) -> FldPadExactElt
   {A uniformizing element of F.}
   if not assigned F`uniformizing_element then
@@ -506,20 +538,11 @@ intrinsic ResidueGenerator(F :: FldPadExact) -> FldPadExactElt
   return F`residue_generator;
 end intrinsic;
 
-/// A generator of F over its prime subfield.
-/// 
-/// If F is absolutely unramified, this will be a residue generator. If absolutely totally ramified, this will be a uniformizing element. Otherwise, it will be the sum of the two.
+/// A generator of F over its prime subfield. Equivalent to `Generator(F, PrimeField(F))`.
 intrinsic AbsoluteGenerator(F :: FldPadExact) -> FldPadExactElt
   {A generator of F over its prime subfield.}
   if not assigned F`absolute_generator then
-    if AbsoluteRamificationDegree(F) eq 1 then
-      g := ResidueGenerator(F);
-    elif AbsoluteInertiaDegree(F) eq 1 then
-      g := UniformizingElement(F);
-    else
-      g := ResidueGenerator(F) + UniformizingElement(F);
-    end if;
-    F`absolute_generator := g;
+    F`absolute_generator := Generator(F, PrimeField(F));
   end if;
   return F`absolute_generator;
 end intrinsic;
