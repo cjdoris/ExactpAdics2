@@ -1107,6 +1107,16 @@ intrinsic Roots(f :: RngUPolElt_FldPadExact) -> []
   return ExactpAdics_Roots(f);
 end intrinsic;
 
+intrinsic HasRoot(f :: RngUPolElt_FldPadExact) -> BoolElt, FldPadExactElt
+  {True if f has a root it its base ring. If so, returns one.}
+  roots := Roots(f);
+  if #roots eq 0 then
+    return false, _;
+  else
+    return true, roots[1][1];
+  end if;
+end intrinsic;
+
 /// The factorization of f over its base ring, as a sequence of `<factor,multiplicty>` pairs. Aside from some (exactly) zero roots, which are handled separately, f must be squarefree. Also returns the leading coefficient of f.
 /// 
 /// Internally, this calls `ExactpAdics_Factorization`, which has more parameters.
@@ -1116,6 +1126,25 @@ end intrinsic;
 intrinsic Factorization(f :: RngUPolElt_FldPadExact : Certificates:=false, Extensions:=false) -> [], FldPadExactElt, []
   {The factorization of f.}
   return ExactpAdics_Factorization(f : Certificates:=Certificates, Extensions:=Extensions);
+end intrinsic;
+
+/// True if f is irreducible.
+/// 
+///param Certificate:=false When `true`, also returns a certificate when f is irreducible.
+///param Extension:=false When `true`, implies `Certificates:=true`, and the certificate also includes the extension defined by the factor.
+intrinsic IsIrreducible(f :: RngUPolElt_FldPadExact : Certificate:=false, Extension:=false) -> BoolElt, .
+  {True if f is irreducible.}
+  Certificate or:= Extension;
+  facs, _, certs := Factorization(f : Certificates:=Certificate, Extensions:=Extension);
+  if #facs eq 1 and facs[1][2] eq 1 then
+    if Certificate then
+      return true, certs[1];
+    else
+      return true;
+    end if;
+  else
+    return false, _;
+  end if;
 end intrinsic;
 
 /// The factorization of `f` according to its Newton polygon, as a sequence of factors. The factors are ordered by slope, from lowest (most negative) to highest.
