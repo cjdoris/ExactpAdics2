@@ -278,6 +278,7 @@ intrinsic IsCoercible(R :: RngUPol_FldPadExact, X :: FldPadExactElt) -> BoolElt,
     Init(h);
     return true, h;
   end if;
+  return false, "not coercible to base ring: " cat Sprint(x);
 end intrinsic;
 
 ///hide
