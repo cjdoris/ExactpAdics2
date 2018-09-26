@@ -772,6 +772,9 @@ intrinsic DefiningPolynomial(F :: FldPadExact) -> RngUPolElt_FldPadExact
   return F`defining_polynomial;
 end intrinsic;
 
+/// A defining polynomial for `E/F`.
+/// 
+/// Specifically, it is the minimal polynomial for `Generator(E,F)`. In particular, if the extension is trivial then this is x and if F is the base field of E, then this is `DefiningPolynomial(E)`.
 intrinsic DefiningPolynomial(E :: FldPadExact, F :: FldPadExact) -> RngUPolElt_FldPadExact
   {A defining polynomial for E/F.}
   return DefiningPolynomial(E / F);
@@ -787,7 +790,7 @@ intrinsic DefiningPolynomial(X :: ExtFldPadExact) -> RngUPolElt_FldPadExact
     when 2:
       f := DefiningPolynomial(TopField(X));
     else
-      error "not implemented: DefiningPolynomial";
+      f := MinimalPolynomialAssumingDegree(AbsoluteGenerator(TopField(X)), BaseField(X), Degree(X));
     end case;
     X`defining_polynomial := f;
   end if;
