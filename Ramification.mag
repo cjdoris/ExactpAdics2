@@ -267,9 +267,10 @@ intrinsic RamificationFiltration(x :: ExtFldPadExact : Alg:="LA") -> NwtnPgon
           dE := Ds[i];
           d := Degree(E2, F2) div dE;
           pi2 := EtoE2(pi);
+          m0 := MinimalPolynomialAssumingDegree(pi2, F2, d);
           for epoch in [1..99999] do
             xpi2 := EpochApproximation(pi2, epoch);
-            xm := MinimalPolynomial(xpi2);
+            xm := EpochApproximation(m0, epoch);
             m := WeakApproximation(PolynomialRing(F2) ! xm);
             if Degree(m) ne d then
               continue epoch;
