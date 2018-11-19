@@ -211,7 +211,7 @@ end function;
 
 function mval_make_FldPadElt(x)
   assert Type(x) eq FldPadElt;
-  FUDGE := (e eq 1 select 0 else 2*e) where e := AbsoluteRamificationDegree(Parent(x));
+  FUDGE := 2*e where e := AbsoluteRamificationDegree(Parent(x));
   apr := APR(x) - FUDGE;
   val := Min(VAL(x), apr);
   return mval_make(val, val lt apr);
@@ -404,10 +404,23 @@ end function;
 
 function flatten(br, pol : k:=#br`basis)
   pol := polring(br : k:=k) ! pol;
+  if Degree(pol) lt 0 then
+    return br`polring ! [];
+  end if;
+  c := pol;
+  deg := 0;
   for i in [k..1 by -1] do
     pol := Evaluate(pol, br`basis[i]`polx);
+    deg +:= Degree(c) * br`basis[i]`absdeg;
+    c := LeadingCoefficient(c);
   end for;
   pol := Evaluate(pol, br`polring ! [-br`offset, 1]);
+  deg +:= Degree(c);
+  if Degree(pol) gt deg then
+    assert forall{i : i in [deg+1..Degree(pol)] | IsWeaklyZero(Coefficient(pol, i))};
+    pol := Parent(pol) ! Coefficients(pol)[1..deg+1];
+  end if;
+  assert Degree(pol) eq deg;
   return pol;
 end function;
 
@@ -751,6 +764,7 @@ procedure pop_branch(~pass, ~st, ~br)
       br_set_xpol(~br, st`xpols[br`xpol_index]);
     when "offset":
       do_offset(~br, br`on_pop[2]);
+      br`slopes_done := {};
     when "new_base":
       b := br`on_pop[2];
       // basering, polring
