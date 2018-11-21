@@ -4,3 +4,4 @@ permalink: pretty
 baseurl: /ExactpAdics2
 
 theme: jekyll-theme-slate
+show_downloads: true
