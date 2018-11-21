@@ -78,14 +78,18 @@ Zero and one.
 ### From coefficients
 {:#from-coefficients}
 
-<a id="Polynomial"></a><a id="Polynomial--seq-FldPadExactElt"></a>
+<a id="Polynomial"></a><a id="Polynomial--seq-FldPadExactElt"></a><a id="Polynomial--ModTupFldElt_FldPadExact"></a>
 > **Polynomial** (cs :: [*FldPadExactElt*])
+> 
+> **Polynomial** (cs :: *ModTupFldElt_FldPadExact*)
 > 
 > -> *RngUPolElt_FldPadExact*
 > {:.ret}
 {:.intrinsic}
 
 The polynomial with coefficients `cs`.
+
+
 
 
 <a id="Polynomial-2"></a><a id="Polynomial--FldPadExact--etc"></a><a id="Polynomial--FldPadExact--seq"></a>
@@ -105,7 +109,7 @@ The polynomial over `F` with coefficients `cs`.
 We can coerce the following to a polynomial in `R`:
 - A polynomial in `R`
 - A polynomial whose coefficients are coercible to the base ring of `R`
-- A sequence of anything coercible to the base ring of `R`
+- A sequence or vector of anything coercible to the base ring of `R`
 - Anything coercible to the base ring of `R`
 
 <a id="IsCoercible"></a><a id="IsCoercible--RngUPol_FldPadExact--etc"></a><a id="IsCoercible--RngUPol_FldPadExact--any"></a>
@@ -404,6 +408,16 @@ True if `g` is Hensel-liftable to a factor of `f`. If so, also returns the facto
 The roots of `f` over its base ring, as a sequence of `<root,multiplicity>` pairs. Aside from some (exactly) zero roots, which are handled separately, `f` must be squarefree.
 
 
+<a id="HasRoot"></a><a id="HasRoot--RngUPolElt_FldPadExact"></a>
+> **HasRoot** (f :: *RngUPolElt_FldPadExact*)
+> 
+> -> *BoolElt*, *FldPadExactElt*
+> {:.ret}
+{:.intrinsic}
+
+True if `f` has a root it its base ring. If so, returns one.
+
+
 <a id="Factorization"></a><a id="Factorization--RngUPolElt_FldPadExact"></a>
 > **Factorization** (f :: *RngUPolElt_FldPadExact*)
 > 
@@ -419,6 +433,20 @@ Internally, this calls `ExactpAdics_Factorization`, which has more parameters.
 **Parameters**
 - `Certificates := false`: When `true`, also returns a sequence of certificates corresponding to the factors.
 - `Extensions := false`: When `true`, implies `Certificates:=true`, and the certificates also include the extension defined by the factor.
+
+<a id="IsIrreducible"></a><a id="IsIrreducible--RngUPolElt_FldPadExact"></a>
+> **IsIrreducible** (f :: *RngUPolElt_FldPadExact*)
+> 
+> -> *BoolElt*, Any
+> {:.ret}
+{:.intrinsic}
+
+True if `f` is irreducible.
+
+
+**Parameters**
+- `Certificate := false`: When `true`, also returns a certificate when f is irreducible.
+- `Extension := false`: When `true`, implies `Certificates:=true`, and the certificate also includes the extension defined by the factor.
 
 <a id="NewtonPolygonFactorization"></a><a id="NewtonPolygonFactorization--RngUPolElt_FldPadExact"></a>
 > **NewtonPolygonFactorization** (f :: *RngUPolElt_FldPadExact*)

@@ -8,6 +8,8 @@
 * [Creation of polynomials](#creation-of-polynomials)
   * [Coercion](#coercion)
 * [Basic operations on polynomials](#basic-operations-on-polynomials)
+  * [Derivative](#derivative)
+  * [Evaluate](#evaluate)
 * [Hensel lifting](#hensel-lifting)
 * [Internals](#internals)
   * [Approximation](#approximation)
@@ -141,6 +143,80 @@ True if `f` is definitely a monomial (i.e. has one term). If so, also returns it
 {:.intrinsic}
 
 The exponents of `m`, which must be a monomial.
+
+
+<a id="-"></a><a id="---RngMPolElt_FldPadExact"></a><a id="+"></a><a id="+--RngMPolElt_FldPadExact--etc"></a><a id="+--RngMPolElt_FldPadExact--RngMPolElt_FldPadExact"></a><a id="---RngMPolElt_FldPadExact--etc"></a><a id="---RngMPolElt_FldPadExact--RngMPolElt_FldPadExact"></a><a id="*"></a><a id="*--RngMPolElt_FldPadExact--etc"></a><a id="*--RngMPolElt_FldPadExact--RngMPolElt_FldPadExact"></a><a id="/"></a><a id="/--RngMPolElt_FldPadExact--etc"></a><a id="/--RngMPolElt_FldPadExact--FldPadExactElt"></a><a id="&+"></a><a id="&+--seq-RngMPolElt_FldPadExact"></a><a id="&*"></a><a id="&*--seq-RngMPolElt_FldPadExact"></a>
+> **\'-\'** (f :: *RngMPolElt_FldPadExact*)
+> 
+> **\'+\'** (f :: *RngMPolElt_FldPadExact*, g :: *RngMPolElt_FldPadExact*)
+> 
+> **\'-\'** (f :: *RngMPolElt_FldPadExact*, g :: *RngMPolElt_FldPadExact*)
+> 
+> **\'\*\'** (f :: *RngMPolElt_FldPadExact*, g :: *RngMPolElt_FldPadExact*)
+> 
+> **\'/\'** (f :: *RngMPolElt_FldPadExact*, x :: *FldPadExactElt*)
+> 
+> **\'&+\'** (fs :: [*RngMPolElt_FldPadExact*])
+> 
+> **\'&\*\'** (fs :: [*RngMPolElt_FldPadExact*])
+> 
+> -> *RngMPolElt_FldPadExact*
+> {:.ret}
+{:.intrinsic}
+
+Negate, add, subtract, multiply, divide by scalar, sum, product.
+
+
+
+
+
+
+
+
+
+
+
+
+
+**Parameters**
+- `Safe := false`: When true, this may be used as an intermediate variable in [`WithDependencies`]({{site.baseurl}}/internals#WithDependencies) with the `Fast` option.
+
+### Derivative
+{:#derivative}
+
+<a id="Derivative"></a><a id="Derivative--RngMPolElt_FldPadExact--etc"></a><a id="Derivative--RngMPolElt_FldPadExact--RngIntElt--RngIntElt"></a><a id="Derivative--RngMPolElt_FldPadExact--RngIntElt--RngMPolElt_FldPadExact"></a><a id="Derivative--RngMPolElt_FldPadExact--RngIntElt"></a><a id="Derivative--RngMPolElt_FldPadExact--RngMPolElt_FldPadExact"></a>
+> **Derivative** (f :: *RngMPolElt_FldPadExact*, m :: *RngIntElt*, v :: *RngIntElt*)
+> 
+> **Derivative** (f :: *RngMPolElt_FldPadExact*, m :: *RngIntElt*, v :: *RngMPolElt_FldPadExact*)
+> 
+> **Derivative** (f :: *RngMPolElt_FldPadExact*, v :: *RngIntElt*)
+> 
+> **Derivative** (f :: *RngMPolElt_FldPadExact*, v :: *RngMPolElt_FldPadExact*)
+> 
+> -> *RngMPolElt_FldPadExact*
+> {:.ret}
+{:.intrinsic}
+
+The `m`th or first derivative of `f` with respect to variable `v`.
+
+
+
+
+
+
+
+
+### Evaluate
+{:#evaluate}
+
+<a id="Evaluate"></a><a id="Evaluate--RngMPolElt_FldPadExact--etc"></a><a id="Evaluate--RngMPolElt_FldPadExact--seq-FldPadExactElt"></a>
+> **Evaluate** (f :: *RngMPolElt_FldPadExact*, xs :: [*FldPadExactElt*])
+> 
+> -> *FldPadExactElt*
+> {:.ret}
+{:.intrinsic}
+
+Evaluates `f(xs)`.
 
 
 ## Hensel lifting

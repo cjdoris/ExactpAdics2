@@ -26,6 +26,8 @@
 * [Residue class field](#residue-class-field)
 * [Linear algebra](#linear-algebra)
 * [Standard form](#standard-form)
+* [Minimal polynomials](#minimal-polynomials)
+* [Subfields](#subfields)
 * [Ramification polynomials and polygons](#ramification-polynomials-and-polygons)
 * [Hasse-Herbrand transition function](#hasse-herbrand-transition-function)
   * [Creation](#creation)
@@ -198,6 +200,18 @@ Zero and one.
 A generator of `F`.
 
 
+<a id="Generator-2"></a><a id="Generator--FldPadExact--etc"></a><a id="Generator--FldPadExact--FldPadExact"></a>
+> **Generator** (E :: *FldPadExact*, F :: *FldPadExact*)
+> 
+> -> *FldPadExactElt*
+> {:.ret}
+{:.intrinsic}
+
+A generator for `E/F`.
+
+If `E/F` is trivial, this is 0. If unramified, this is a residue generator. If totally ramified, this is a uniformizing element. Otherwise it is the sum of the two.
+
+
 <a id="UniformizingElement"></a><a id="UniformizingElement--FldPadExact"></a>
 > **UniformizingElement** (F :: *FldPadExact*)
 > 
@@ -225,9 +239,7 @@ A residue generator of `F`. That is, an element whose residue class generates th
 > {:.ret}
 {:.intrinsic}
 
-A generator of `F` over its prime subfield.
-
-If `F` is absolutely unramified, this will be a residue generator. If absolutely totally ramified, this will be a uniformizing element. Otherwise, it will be the sum of the two.
+A generator of `F` over its prime subfield. Equivalent to `Generator(F, PrimeField(F))`.
 
 
 ### From coefficients
@@ -258,7 +270,25 @@ True if `X` is coercible to `F`. If so, also returns the coerced element.
 ### Random
 {:#random}
 
-*Not implemented.*
+<a id="RandomInteger"></a><a id="RandomInteger--FldPadExact"></a>
+> **RandomInteger** (F :: *FldPadExact*)
+> 
+> -> *FldPadExactElt*
+> {:.ret}
+{:.intrinsic}
+
+A random integer of `F`.
+
+
+<a id="RandomUnit"></a><a id="RandomUnit--FldPadExact"></a>
+> **RandomUnit** (F :: *FldPadExact*)
+> 
+> -> *FldPadExactElt*
+> {:.ret}
+{:.intrinsic}
+
+A random unit of `F`.
+
 
 ## Basic operations
 {:#basic-operations}
@@ -290,7 +320,9 @@ The defining polynomial of `F`.
 > {:.ret}
 {:.intrinsic}
 
-A defining polynomial for `E`/`F`.
+A defining polynomial for `E/F`.
+
+Specifically, it is the minimal polynomial for `Generator(E,F)`. In particular, if the extension is trivial then this is x and if `F` is the base field of `E`, then this is `DefiningPolynomial(E)`.
 
 
 <a id="Valuation"></a><a id="Valuation--FldPadExactElt"></a>
@@ -780,6 +812,24 @@ An optimized representation of `F`. For extensions, this will truncate the preci
 
 **Parameters**
 - `Isomorphism := false`: When true, also returns an isomorphism between the old and new representations.
+
+## Minimal polynomials
+{:#minimal-polynomials}
+
+<a id="MinimalPolynomialAssumingDegree"></a><a id="MinimalPolynomialAssumingDegree--FldPadExactElt--etc"></a><a id="MinimalPolynomialAssumingDegree--FldPadExactElt--FldPadExact--RngIntElt"></a>
+> **MinimalPolynomialAssumingDegree** (x :: *FldPadExactElt*, F :: *FldPadExact*, d :: *RngIntElt*)
+> 
+> -> *RngUPolElt_FldPadExact*
+> {:.ret}
+{:.intrinsic}
+
+Minimal polynomial of `x` over `F`, assuming it is degree `d`. If `d` is incorrect but divides the true degree, then this will return an incorrect polynomial; otherwise it will likely raise an error.
+
+**Parameters**
+- `Check := true`: Checks that the returned polynomial evaluated at x is weakly zero each time an approximation is generated.
+
+## Subfields
+{:#subfields}
 
 ## Ramification polynomials and polygons
 {:#ramification-polynomials-and-polygons}
