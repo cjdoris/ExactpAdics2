@@ -2,3 +2,5 @@ title: Exact p-Adics 2
 description: A Magma package for exact p-adic computation
 permalink: pretty
 baseurl: /ExactpAdics2
+
+theme: jekyll-theme-slate
