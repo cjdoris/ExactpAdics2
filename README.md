@@ -17,7 +17,16 @@ It differs from [the first implementation (`ExactpAdics`)](https://github.com/cj
 - Remove (backwards-incompatible change to user interface, increment major version)
 ```
 
-### v0.3.0
+### [v0.4.0](https://github.com/cjdoris/ExactpAdics2/releases/tag/v0.4.0)
+
+```
++ Adds `Generator(E,F)` and `DefiningPolynomial(E,F)` for an extension `E/F`.
++ Adds `HasRoot(f)` and `IsIrreducible(f)` for univariate polynomial `f`.
+! `RamificationFiltration` now more robust.
+! Fixes bugs in `IsCoercible` and univariate factorization.
+```
+
+### [v0.3.0](https://github.com/cjdoris/ExactpAdics2/releases/tag/v0.3.0)
 
 ```
 ~ Now licensed under GPL.
@@ -28,7 +37,7 @@ It differs from [the first implementation (`ExactpAdics`)](https://github.com/cj
 ! Fixes bugs in `IsCoercible`.
 ```
 
-### v0.2.0
+### [v0.2.0](https://github.com/cjdoris/ExactpAdics2/releases/tag/v0.2.0)
 ```
 ~ `RamificationFiltration` now uses linear algebra instead of factorization, which is faster.
 ~ `BringToEpoch` is reimplemented more simply, and is faster.
@@ -37,7 +46,7 @@ It differs from [the first implementation (`ExactpAdics`)](https://github.com/cj
 + Adds `Safe` parameters to functions which need them to make them safe for `WithDependencies` with the `Fast` option.
 ```
 
-### v0.1.0
+### [v0.1.0](https://github.com/cjdoris/ExactpAdics2/releases/tag/v0.1.0)
 ```
 Initial release
 ```
